@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="部品管理">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<title>部品管理 — Spare Parts Manager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a;
+    color: #fafafa;
+    font-family: 'Noto Sans JP', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .font-tech { font-family: 'JetBrains Mono', monospace; letter-spacing: -0.01em; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea { font-family: inherit; }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; max-width: 640px; margin: 0 auto; padding-bottom: 120px; }
+
+  /* Header */
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #171717;
+    padding: 24px 20px 16px;
+  }
+  .header-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+  h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.02em; }
+  .meta { font-size: 11px; color: #525252; }
+  .meta .count { color: #fb923c; font-weight: 600; }
+  .subtitle { font-size: 11px; color: #404040; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 16px; }
+
+  /* Search */
+  .search-wrap { position: relative; }
+  .search-wrap svg.icon-search {
+    position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); width: 16px; height: 16px; color: #525252;
+  }
+  .search {
+    width: 100%; background: #171717; border: 1px solid #262626;
+    border-radius: 12px; padding: 12px 40px 12px 40px;
+    color: #fafafa; font-size: 14px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .search::placeholder { color: #404040; }
+  .search:focus { border-color: #fb923c; }
+  .search-clear {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    padding: 6px; border-radius: 6px; color: #525252;
+  }
+  .search-clear:hover { background: #262626; }
+
+  /* Header back button */
+  .header-bar { display: flex; align-items: center; gap: 8px; padding: 12px; }
+  .icon-btn {
+    padding: 8px; border-radius: 8px; transition: background 0.15s;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: #171717; }
+  .icon-btn.danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
+  .header-title { font-weight: 700; font-size: 18px; }
+  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+
+  /* List */
+  .list { padding: 16px 20px 0; display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    background: #171717; border: 1px solid #262626; border-radius: 12px;
+    overflow: hidden; transition: border-color 0.15s; display: flex; align-items: stretch;
+  }
+  .card:hover { border-color: #404040; }
+  .card-thumb {
+    flex-shrink: 0; width: 80px; height: 80px; background: #262626;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card-thumb svg { width: 28px; height: 28px; color: #525252; }
+  .card-body { flex: 1; min-width: 0; padding: 8px 12px; text-align: left; }
+  .card-name { font-weight: 600; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-name.empty { color: #525252; }
+  .card-model { font-size: 11px; color: rgba(251,146,60,0.9); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-loc { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: #525252; }
+  .card-loc svg { width: 12px; height: 12px; }
+  .card-loc span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-qty { display: flex; align-items: center; padding-right: 8px; gap: 2px; }
+  .qty-btn {
+    width: 32px; height: 32px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #a3a3a3; transition: all 0.15s;
+  }
+  .qty-btn:hover { background: #262626; }
+  .qty-btn.plus { color: #fb923c; }
+  .qty-btn:active { transform: scale(0.9); }
+  .qty-num { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 80px 24px 24px; }
+  .empty-icon-wrap {
+    width: 64px; height: 64px; border-radius: 16px; background: #171717;
+    border: 1px solid #262626; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .empty-icon-wrap svg { width: 28px; height: 28px; color: #525252; }
+  .empty h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+  .empty p { margin: 0; font-size: 14px; color: #737373; }
+  .empty .accent { color: #fb923c; }
+
+  /* FAB */
+  .fab {
+    position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px;
+    background: #fb923c; color: #0a0a0a; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 20; transition: transform 0.1s, background 0.15s;
+    animation: pulse-ring 1.8s infinite;
+  }
+  .fab:hover { background: #fdba74; }
+  .fab:active { transform: scale(0.95); }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 0 rgba(251,146,60,0.4); }
+    100% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 14px rgba(251,146,60,0); }
+  }
+  .fab svg { width: 24px; height: 24px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: #262626; border: 1px solid #404040; padding: 12px 20px;
+    border-radius: 8px; font-size: 14px; z-index: 50;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    animation: slideUp 0.25s ease-out;
+  }
+  @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+  /* Form */
+  .form { padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+  .field-label {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 8px;
+  }
+  .field-label svg { width: 14px; height: 14px; }
+  .input, .textarea {
+    width: 100%; background: #171717; border: 1px solid #262626;
+    border-radius: 12px; padding: 12px 16px; color: #fafafa; font-size: 14px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .input::placeholder, .textarea::placeholder { color: #404040; }
+  .input:focus, .textarea:focus { border-color: #fb923c; }
+  .input.mono { font-family: 'JetBrains Mono', monospace; }
+  .textarea { resize: none; }
+
+  .qty-input-wrap {
+    display: flex; align-items: center; background: #171717;
+    border: 1px solid #262626; border-radius: 12px; overflow: hidden;
+  }
+  .qty-input-btn { padding: 12px 16px; transition: background 0.15s; }
+  .qty-input-btn:hover { background: #262626; }
+  .qty-input-btn.plus { color: #fb923c; }
+  .qty-input-btn:active { transform: scale(0.95); }
+  .qty-input {
+    flex: 1; background: transparent; border: none; text-align: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px;
+    color: #fafafa; padding: 12px 0; outline: none; font-variant-numeric: tabular-nums;
+  }
+  .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+  }
+
+  .save-btn {
+    background: #fb923c; color: #0a0a0a; font-weight: 700; font-size: 14px;
+    padding: 8px 16px; border-radius: 8px; display: flex; align-items: center; gap: 6px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .save-btn:hover { background: #fdba74; }
+  .save-btn:active { transform: scale(0.95); }
+  .save-btn svg { width: 16px; height: 16px; }
+
+  /* Photo */
+  .photo-empty {
+    width: 100%; border: 2px dashed #262626; border-radius: 12px;
+    padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: all 0.15s;
+  }
+  .photo-empty:hover { border-color: rgba(251,146,60,0.5); background: rgba(23,23,23,0.5); }
+  .photo-empty svg { width: 28px; height: 28px; color: #525252; }
+  .photo-empty .label { font-size: 14px; color: #a3a3a3; }
+  .photo-empty .sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #525252; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .photo-preview { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #262626; background: #171717; }
+  .photo-preview img { width: 100%; max-height: 280px; object-fit: contain; display: block; }
+  .photo-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 8px; }
+  .photo-action {
+    background: rgba(23,23,23,0.9); backdrop-filter: blur(8px);
+    border: 1px solid #404040; padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px;
+  }
+  .photo-action svg { width: 14px; height: 14px; }
+  .photo-action.compact { padding: 6px; }
+
+  /* Detail */
+  .detail { padding: 24px 20px; }
+  .detail-photo {
+    border-radius: 16px; overflow: hidden; border: 1px solid #262626;
+    background: #171717; margin-bottom: 24px;
+  }
+  .detail-photo img { width: 100%; max-height: 380px; object-fit: contain; display: block; }
+  .detail-photo-empty { height: 192px; display: flex; align-items: center; justify-content: center; }
+  .detail-photo-empty svg { width: 48px; height: 48px; color: #404040; }
+  .detail h2 { margin: 0 0 4px; font-size: 24px; font-weight: 900; line-height: 1.15; }
+  .detail h2.empty { color: #525252; }
+  .detail-model { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #fb923c; margin-bottom: 24px; }
+
+  .qty-card {
+    background: #171717; border: 1px solid #262626; border-radius: 16px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .qty-card-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 12px;
+  }
+  .qty-card-row { display: flex; align-items: center; justify-content: space-between; }
+  .qty-circle-btn {
+    width: 48px; height: 48px; border-radius: 50%; background: #262626;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .qty-circle-btn:hover { background: #404040; }
+  .qty-circle-btn.plus { background: #fb923c; color: #0a0a0a; }
+  .qty-circle-btn.plus:hover { background: #fdba74; }
+  .qty-circle-btn:active { transform: scale(0.9); }
+  .qty-circle-btn svg { width: 20px; height: 20px; }
+  .qty-display { font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 48px; font-variant-numeric: tabular-nums; }
+
+  .info-row {
+    background: #171717; border: 1px solid #262626; border-radius: 12px;
+    padding: 16px; margin-bottom: 12px;
+  }
+  .info-row .label {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 8px;
+  }
+  .info-row .label svg { width: 16px; height: 16px; }
+  .info-row .value { font-size: 14px; }
+  .info-row .value.multi { white-space: pre-wrap; }
+
+  .meta-bottom {
+    margin-top: 16px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #404040; text-transform: uppercase; letter-spacing: 0.15em;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    z-index: 50; display: flex; align-items: flex-end; justify-content: center; padding: 16px;
+  }
+  @media (min-width: 640px) { .modal-overlay { align-items: center; } }
+  .modal {
+    background: #171717; border: 1px solid #262626; border-radius: 16px;
+    padding: 24px; max-width: 360px; width: 100%;
+    animation: slideUp 0.25s ease-out;
+  }
+  .modal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .modal-icon-wrap {
+    width: 40px; height: 40px; border-radius: 50%; background: rgba(239,68,68,0.1);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .modal-icon-wrap svg { width: 20px; height: 20px; color: #f87171; }
+  .modal h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+  .modal p { margin: 0; font-size: 14px; color: #a3a3a3; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-btn { flex: 1; padding: 12px; border-radius: 8px; font-weight: 500; transition: background 0.15s; }
+  .modal-btn.cancel { background: #262626; }
+  .modal-btn.cancel:hover { background: #404040; }
+  .modal-btn.confirm { background: #ef4444; color: white; }
+  .modal-btn.confirm:hover { background: #dc2626; }
+
+  .hidden { display: none !important; }
+  .anim-up { animation: viewIn 0.25s ease-out; }
+  @keyframes viewIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Install prompt banner */
+  .install-banner {
+    position: fixed; bottom: 24px; left: 24px; right: 24px;
+    max-width: 400px; margin: 0 auto;
+    background: #171717; border: 1px solid #fb923c;
+    border-radius: 12px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    z-index: 30;
+  }
+  .install-banner-text { flex: 1; font-size: 13px; }
+  .install-banner-text strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .install-banner-text small { color: #a3a3a3; font-size: 11px; }
+  .install-btn { background: #fb923c; color: #0a0a0a; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+  .install-close { padding: 4px; color: #737373; }
+</style>
+</head>
+<body>
+
+<!-- SVG icon symbols (used via <use>) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18M6 6l12 12"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14M12 5v14"/>
+    </symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14"/>
+    </symbol>
+    <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m15 18-6-6 6-6"/>
+    </symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </symbol>
+    <symbol id="i-pkg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+    </symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+    </symbol>
+    <symbol id="i-img" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+    </symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+    </symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+    </symbol>
+    <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+    </symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="app" class="container"></div>
+
+<!-- Install hint banner -->
+<div id="install-banner" class="install-banner hidden">
+  <div class="install-banner-text">
+    <strong>📲 ホーム画面に追加</strong>
+    <small>Safari共有 → ホーム画面に追加</small>
+  </div>
+  <button class="install-btn" id="install-btn">追加</button>
+  <button class="install-close" id="install-close">
+    <svg width="16" height="16"><use href="#i-x"/></svg>
+  </button>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'spare-parts-v1';
+
+// State
+let state = {
+  parts: [],
+  view: 'list',    // list | form | detail
+  search: '',
+  form: emptyForm(),
+  selectedId: null,
+  confirmDel: false,
+};
+
+function emptyForm() {
+  return { id: null, name: '', model: '', quantity: 0, location: '', notes: '', photo: '' };
+}
+
+// ----- Storage -----
+function loadParts() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    state.parts = raw ? JSON.parse(raw) : [];
+  } catch { state.parts = []; }
+}
+
+function saveParts() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.parts));
+  } catch (e) {
+    flash('保存に失敗 (容量不足の可能性)');
+  }
+}
+
+// ----- Image resize -----
+function resizeImage(file, maxWidth = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ratio = Math.min(1, maxWidth / img.width);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ----- Toast -----
+function flash(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+// ----- Utilities -----
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function getFiltered() {
+  const s = state.search.trim().toLowerCase();
+  if (!s) return state.parts;
+  return state.parts.filter(p =>
+    (p.name || '').toLowerCase().includes(s) ||
+    (p.model || '').toLowerCase().includes(s) ||
+    (p.location || '').toLowerCase().includes(s)
+  );
+}
+
+// ----- Render -----
+function render() {
+  const app = document.getElementById('app');
+
+  if (state.view === 'list') {
+    app.innerHTML = renderList();
+    bindListEvents();
+  } else if (state.view === 'form') {
+    app.innerHTML = renderForm();
+    bindFormEvents();
+  } else if (state.view === 'detail') {
+    app.innerHTML = renderDetail();
+    bindDetailEvents();
+  }
+
+  // Modal
+  document.querySelector('.modal-overlay')?.remove();
+  if (state.confirmDel) {
+    document.body.insertAdjacentHTML('beforeend', renderModal());
+    bindModalEvents();
+  }
+}
+
+function renderList() {
+  const filtered = getFiltered();
+  return `
+    <div class="anim-up">
+      <div class="header">
+        <div class="header-top">
+          <h1>部品管理</h1>
+          <div class="meta font-tech">
+            <span class="count">${state.parts.length}</span>
+            <span> REGISTERED</span>
+          </div>
+        </div>
+        <div class="subtitle font-tech">Spare parts inventory</div>
+        <div class="search-wrap">
+          <svg class="icon-search"><use href="#i-search"/></svg>
+          <input id="search" class="search" type="text" placeholder="部品名・型式・場所で検索" value="${esc(state.search)}">
+          ${state.search ? `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>` : ''}
+        </div>
+      </div>
+      <div class="list">
+        ${filtered.length === 0 ? renderEmpty() : filtered.map(renderCard).join('')}
+      </div>
+      <button class="fab" id="fab" aria-label="部品を追加">
+        <svg><use href="#i-plus"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function renderCard(p) {
+  return `
+    <div class="card" data-id="${p.id}">
+      <button class="card-thumb card-tap" data-id="${p.id}">
+        ${p.photo ? `<img src="${p.photo}" alt="${esc(p.name)}">` : `<svg><use href="#i-pkg"/></svg>`}
+      </button>
+      <button class="card-body card-tap" data-id="${p.id}">
+        <div class="card-name ${!p.name ? 'empty' : ''}">${p.name ? esc(p.name) : '(無題)'}</div>
+        <div class="card-model font-tech">${p.model ? esc(p.model) : '—'}</div>
+        ${p.location ? `<div class="card-loc"><svg><use href="#i-pin"/></svg><span>${esc(p.location)}</span></div>` : ''}
+      </button>
+      <div class="card-qty">
+        <button class="qty-btn minus" data-id="${p.id}" data-delta="-1" aria-label="減らす">
+          <svg width="16" height="16"><use href="#i-minus"/></svg>
+        </button>
+        <div class="qty-num">${p.quantity || 0}</div>
+        <button class="qty-btn plus" data-id="${p.id}" data-delta="1" aria-label="増やす">
+          <svg width="16" height="16"><use href="#i-plus"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEmpty() {
+  if (state.parts.length > 0 && state.search) {
+    return `
+      <div class="empty">
+        <svg width="40" height="40" style="color:#404040;margin-bottom:12px"><use href="#i-search"/></svg>
+        <p>「${esc(state.search)}」に一致する部品はありません</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="empty">
+      <div class="empty-icon-wrap"><svg><use href="#i-pkg"/></svg></div>
+      <h2>まだ部品がありません</h2>
+      <p>右下の <span class="accent">+</span> ボタンから</p>
+      <p>最初の部品を登録してください</p>
+    </div>
+  `;
+}
+
+function renderForm() {
+  const f = state.form;
+  const isEdit = !!f.id;
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="cancel-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="header-title">${isEdit ? '編集' : '新規登録'}</div>
+        <div class="header-actions">
+          <button class="save-btn" id="save-btn">
+            <svg><use href="#i-save"/></svg>保存
+          </button>
+        </div>
+      </div>
+      <div class="form">
+        <div>
+          <div class="field-label"><svg><use href="#i-img"/></svg>写真</div>
+          <input type="file" accept="image/*" capture="environment" id="photo-input" style="display:none">
+          ${f.photo ? `
+            <div class="photo-preview">
+              <img src="${f.photo}" alt="プレビュー">
+              <div class="photo-actions">
+                <button class="photo-action" id="photo-change"><svg><use href="#i-cam"/></svg>変更</button>
+                <button class="photo-action compact" id="photo-remove"><svg width="16" height="16"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+          ` : `
+            <button class="photo-empty" id="photo-add">
+              <svg><use href="#i-cam"/></svg>
+              <div class="label">写真を撮影 / 選択</div>
+              <div class="sub">tap to capture</div>
+            </button>
+          `}
+        </div>
+        <div>
+          <div class="field-label"><svg><use href="#i-pkg"/></svg>部品名</div>
+          <input class="input" id="f-name" type="text" value="${esc(f.name)}" placeholder="例: ベアリング 6205ZZ">
+        </div>
+        <div>
+          <div class="field-label"><span class="font-tech" style="font-weight:700;font-size:10px">#</span>型式</div>
+          <input class="input mono" id="f-model" type="text" value="${esc(f.model)}" placeholder="例: NSK-6205ZZ-CM">
+        </div>
+        <div>
+          <div class="field-label">個数</div>
+          <div class="qty-input-wrap">
+            <button class="qty-input-btn" id="q-minus"><svg width="16" height="16"><use href="#i-minus"/></svg></button>
+            <input class="qty-input" id="f-qty" type="number" inputmode="numeric" value="${f.quantity}" min="0">
+            <button class="qty-input-btn plus" id="q-plus"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        <div>
+          <div class="field-label"><svg><use href="#i-pin"/></svg>設置場所</div>
+          <input class="input" id="f-loc" type="text" value="${esc(f.location)}" placeholder="例: 第2倉庫 棚A-3 (任意)">
+        </div>
+        <div>
+          <div class="field-label"><svg><use href="#i-doc"/></svg>メモ</div>
+          <textarea class="textarea" id="f-notes" rows="4" placeholder="メーカー、仕様、用途など (任意)">${esc(f.notes)}</textarea>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDetail() {
+  const p = state.parts.find(x => x.id === state.selectedId);
+  if (!p) { state.view = 'list'; render(); return ''; }
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="back-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="subtitle font-tech" style="margin:0">Detail</div>
+        <div class="header-actions">
+          <button class="icon-btn" id="edit-btn"><svg width="16" height="16"><use href="#i-edit"/></svg></button>
+          <button class="icon-btn danger" id="delete-btn"><svg width="16" height="16"><use href="#i-trash"/></svg></button>
+        </div>
+      </div>
+      <div class="detail">
+        ${p.photo
+          ? `<div class="detail-photo"><img src="${p.photo}" alt="${esc(p.name)}"></div>`
+          : `<div class="detail-photo detail-photo-empty"><svg><use href="#i-pkg"/></svg></div>`
+        }
+        <h2 class="${!p.name ? 'empty' : ''}">${p.name ? esc(p.name) : '(無題)'}</h2>
+        <div class="detail-model">${p.model ? esc(p.model) : '—'}</div>
+
+        <div class="qty-card">
+          <div class="qty-card-label">Quantity</div>
+          <div class="qty-card-row">
+            <button class="qty-circle-btn" data-delta="-1"><svg><use href="#i-minus"/></svg></button>
+            <div class="qty-display">${p.quantity || 0}</div>
+            <button class="qty-circle-btn plus" data-delta="1"><svg><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+
+        ${p.location ? `
+          <div class="info-row">
+            <div class="label"><svg><use href="#i-pin"/></svg>設置場所</div>
+            <div class="value">${esc(p.location)}</div>
+          </div>
+        ` : ''}
+        ${p.notes ? `
+          <div class="info-row">
+            <div class="label"><svg><use href="#i-doc"/></svg>メモ</div>
+            <div class="value multi">${esc(p.notes)}</div>
+          </div>
+        ` : ''}
+        ${p.createdAt ? `<div class="meta-bottom">Registered: ${new Date(p.createdAt).toLocaleDateString('ja-JP')}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderModal() {
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-icon-wrap"><svg><use href="#i-alert"/></svg></div>
+          <div>
+            <h3>削除しますか?</h3>
+            <p>この操作は取り消せません。</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn cancel" id="modal-cancel">キャンセル</button>
+          <button class="modal-btn confirm" id="modal-confirm">削除する</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ----- Events -----
+function bindListEvents() {
+  document.getElementById('search').addEventListener('input', (e) => {
+    state.search = e.target.value;
+    // Re-render only the list portion to keep input focus
+    const filtered = getFiltered();
+    const list = document.querySelector('.list');
+    list.innerHTML = filtered.length === 0 ? renderEmpty() : filtered.map(renderCard).join('');
+    // Re-bind card events
+    bindCardEvents();
+    // Toggle clear button
+    const clearBtn = document.getElementById('search-clear');
+    if (state.search && !clearBtn) {
+      document.querySelector('.search-wrap').insertAdjacentHTML('beforeend',
+        `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>`);
+      document.getElementById('search-clear').addEventListener('click', clearSearch);
+    } else if (!state.search && clearBtn) {
+      clearBtn.remove();
+    }
+  });
+
+  document.getElementById('search-clear')?.addEventListener('click', clearSearch);
+  document.getElementById('fab').addEventListener('click', () => {
+    state.form = emptyForm();
+    state.view = 'form';
+    render();
+  });
+  bindCardEvents();
+}
+
+function clearSearch() {
+  state.search = '';
+  render();
+}
+
+function bindCardEvents() {
+  document.querySelectorAll('.card-tap').forEach(el => {
+    el.addEventListener('click', () => {
+      state.selectedId = el.dataset.id;
+      state.view = 'detail';
+      render();
+    });
+  });
+  document.querySelectorAll('.qty-btn').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const delta = parseInt(el.dataset.delta, 10);
+      const p = state.parts.find(x => x.id === id);
+      if (p) {
+        p.quantity = Math.max(0, (Number(p.quantity) || 0) + delta);
+        saveParts();
+        el.parentElement.querySelector('.qty-num').textContent = p.quantity;
+      }
+    });
+  });
+}
+
+function bindFormEvents() {
+  const f = state.form;
+  document.getElementById('cancel-btn').addEventListener('click', () => {
+    state.view = f.id ? 'detail' : 'list';
+    state.form = emptyForm();
+    render();
+  });
+
+  document.getElementById('save-btn').addEventListener('click', saveCurrentForm);
+
+  document.getElementById('f-name').addEventListener('input', e => f.name = e.target.value);
+  document.getElementById('f-model').addEventListener('input', e => f.model = e.target.value);
+  document.getElementById('f-loc').addEventListener('input', e => f.location = e.target.value);
+  document.getElementById('f-notes').addEventListener('input', e => f.notes = e.target.value);
+
+  const qtyInput = document.getElementById('f-qty');
+  qtyInput.addEventListener('input', e => f.quantity = Math.max(0, Number(e.target.value) || 0));
+  document.getElementById('q-minus').addEventListener('click', () => {
+    f.quantity = Math.max(0, (Number(f.quantity) || 0) - 1);
+    qtyInput.value = f.quantity;
+  });
+  document.getElementById('q-plus').addEventListener('click', () => {
+    f.quantity = (Number(f.quantity) || 0) + 1;
+    qtyInput.value = f.quantity;
+  });
+
+  const photoInput = document.getElementById('photo-input');
+  photoInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      f.photo = await resizeImage(file);
+      render();
+    } catch {
+      flash('写真の読み込みに失敗');
+    }
+  });
+  document.getElementById('photo-add')?.addEventListener('click', () => photoInput.click());
+  document.getElementById('photo-change')?.addEventListener('click', () => photoInput.click());
+  document.getElementById('photo-remove')?.addEventListener('click', () => { f.photo = ''; render(); });
+}
+
+function saveCurrentForm() {
+  const f = state.form;
+  if (!f.name.trim() && !f.model.trim()) {
+    flash('部品名または型式を入力してください');
+    return;
+  }
+  if (f.id) {
+    const idx = state.parts.findIndex(p => p.id === f.id);
+    if (idx >= 0) state.parts[idx] = { ...f };
+    saveParts();
+    flash('更新しました');
+    state.selectedId = f.id;
+    state.view = 'detail';
+  } else {
+    const newPart = {
+      ...f,
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      createdAt: new Date().toISOString(),
+    };
+    state.parts.unshift(newPart);
+    saveParts();
+    flash('登録しました');
+    state.view = 'list';
+  }
+  state.form = emptyForm();
+  render();
+}
+
+function bindDetailEvents() {
+  document.getElementById('back-btn').addEventListener('click', () => {
+    state.view = 'list';
+    render();
+  });
+  document.getElementById('edit-btn').addEventListener('click', () => {
+    const p = state.parts.find(x => x.id === state.selectedId);
+    if (p) {
+      state.form = { ...p };
+      state.view = 'form';
+      render();
+    }
+  });
+  document.getElementById('delete-btn').addEventListener('click', () => {
+    state.confirmDel = true;
+    render();
+  });
+  document.querySelectorAll('.qty-circle-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      const delta = parseInt(el.dataset.delta, 10);
+      const p = state.parts.find(x => x.id === state.selectedId);
+      if (p) {
+        p.quantity = Math.max(0, (Number(p.quantity) || 0) + delta);
+        saveParts();
+        document.querySelector('.qty-display').textContent = p.quantity;
+      }
+    });
+  });
+}
+
+function bindModalEvents() {
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    state.confirmDel = false;
+    render();
+  });
+  document.getElementById('modal-confirm').addEventListener('click', () => {
+    state.parts = state.parts.filter(p => p.id !== state.selectedId);
+    saveParts();
+    state.confirmDel = false;
+    state.selectedId = null;
+    state.view = 'list';
+    flash('削除しました');
+    render();
+  });
+}
+
+// ----- Service worker -----
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(err => {
+      console.log('SW registration failed:', err);
+    });
+  });
+}
+
+// ----- Install prompt (Android/Chrome) -----
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('install-dismissed')) {
+    document.getElementById('install-banner').classList.remove('hidden');
+  }
+});
+document.getElementById('install-btn')?.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.add('hidden');
+  }
+});
+document.getElementById('install-close')?.addEventListener('click', () => {
+  localStorage.setItem('install-dismissed', '1');
+  document.getElementById('install-banner').classList.add('hidden');
+});
+
+// iOS "Add to Home Screen" hint - show briefly on first visit if iOS Safari
+function checkIOSInstallHint() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone && !localStorage.getItem('install-dismissed')) {
+    document.getElementById('install-banner').classList.remove('hidden');
+    document.getElementById('install-btn').textContent = '方法';
+    document.getElementById('install-btn').addEventListener('click', () => {
+      alert('Safariの共有ボタン (□↑) を押し、「ホーム画面に追加」を選んでください。');
+    });
+  }
+}
+
+// ----- Init -----
+loadParts();
+render();
+checkIOSInstallHint();
+</script>
+</body>
+</html>
