@@ -383,12 +383,12 @@
 // (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
 // ═══════════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
-  authDomain: "parts-1-40d96.firebaseapp.com",
-  projectId: "parts-1-40d96",
-  storageBucket: "parts-1-40d96.firebasestorage.app",
-  messagingSenderId: "695101125652",
-  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 // ═══════════════════════════════════════════════════════════════════
 
@@ -469,7 +469,19 @@ function startSync() {
           // 旧形式 photo:string → photos:[string] へマイグレーション(読み取り時)
           let photos = Array.isArray(d.photos) ? d.photos.filter(Boolean) : [];
           if (photos.length === 0 && d.photo) photos = [d.photo];
-          let embeddings = Array.isArray(d.embeddings) ? d.embeddings : [];
+          // Firestoreは入れ子配列を許さないため、マップ {0:[...], 1:[...]} で保存している
+          // 読み出し時は写真の枚数分だけ配列に展開する
+          let embeddings = [];
+          if (d.embeddings) {
+            if (Array.isArray(d.embeddings)) {
+              embeddings = d.embeddings;  // 旧データ(空配列)互換
+            } else if (typeof d.embeddings === 'object') {
+              for (let i = 0; i < photos.length; i++) {
+                const v = d.embeddings[String(i)];
+                embeddings.push(Array.isArray(v) ? v : []);
+              }
+            }
+          }
           return {
             id: doc.id,
             name: d.name || '',
@@ -1719,6 +1731,15 @@ function saveCurrentForm() {
 
 async function doSave() {
   const f = state.form;
+  // 入れ子配列はFirestore非対応のため、embeddingsを {0:[...], 1:[...]} のマップに変換
+  const embsToMap = (arr) => {
+    if (!Array.isArray(arr)) return {};
+    const m = {};
+    arr.forEach((emb, i) => {
+      if (Array.isArray(emb) && emb.length > 0) m[String(i)] = emb;
+    });
+    return m;
+  };
   try {
     if (f.id) {
       await db.collection('parts').doc(f.id).update({
@@ -1726,7 +1747,7 @@ async function doSave() {
         quantity: Number(f.quantity) || 0,
         location: f.location, notes: f.notes,
         photos: f.photos || [],
-        embeddings: f.embeddings || [],
+        embeddings: embsToMap(f.embeddings),
         photo: firebase.firestore.FieldValue.delete(),  // 旧フィールド掃除
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -1739,7 +1760,7 @@ async function doSave() {
         quantity: Number(f.quantity) || 0,
         location: f.location, notes: f.notes,
         photos: f.photos || [],
-        embeddings: f.embeddings || [],
+        embeddings: embsToMap(f.embeddings),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
       flash('登録しました', 'success');
