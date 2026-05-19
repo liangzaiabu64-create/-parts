@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="部品管理">
+<!-- アイコンはインライン SVG で提供(下記参照) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0a'/%3E%3Cpath d='M32 16 L48 24 L48 40 L32 48 L16 40 L16 24 Z' fill='%23fb923c'/%3E%3C/svg%3E">
+<title>部品管理 — Spare Parts Manager</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a; color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .font-tech { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; letter-spacing: -0.01em; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px);
+    background-size: 40px 40px; opacity: 0.04;
+    pointer-events: none; z-index: 0;
+  }
+  .container { position: relative; max-width: 640px; margin: 0 auto; padding-bottom: 120px; }
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,10,10,0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #171717; padding: 24px 20px 16px;
+  }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; gap: 12px; }
+  .header-title-wrap { flex: 1; min-width: 0; }
+  h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.02em; }
+  .meta { font-size: 11px; color: #525252; margin-top: 2px; }
+  .meta .count { color: #fb923c; font-weight: 600; }
+  .subtitle { font-size: 11px; color: #404040; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 16px; margin-top: 6px; }
+  .menu-btn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #a3a3a3; transition: all 0.15s; flex-shrink: 0; }
+  .menu-btn:hover { background: #171717; color: #fafafa; }
+  .menu-btn:active { transform: scale(0.92); }
+  .search-wrap { position: relative; }
+  .search-wrap svg.icon-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #525252; }
+  .search { width: 100%; background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 12px 40px 12px 40px; color: #fafafa; font-size: 14px; outline: none; transition: border-color 0.15s; }
+  .search::placeholder { color: #404040; }
+  .search:focus { border-color: #fb923c; }
+  .search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 6px; border-radius: 6px; color: #525252; }
+  .search-clear:hover { background: #262626; }
+  .header-bar { display: flex; align-items: center; gap: 8px; padding: 12px; }
+  .icon-btn { padding: 8px; border-radius: 8px; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn:hover { background: #171717; }
+  .icon-btn.danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
+  .header-title { font-weight: 700; font-size: 18px; }
+  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+  .list { padding: 16px 20px 0; display: flex; flex-direction: column; gap: 8px; }
+  .card { background: #171717; border: 1px solid #262626; border-radius: 12px; overflow: hidden; transition: border-color 0.15s; display: flex; align-items: stretch; }
+  .card:hover { border-color: #404040; }
+  .card-thumb { flex-shrink: 0; width: 80px; height: 80px; background: #262626; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card-thumb svg { width: 28px; height: 28px; color: #525252; }
+  .card-body { flex: 1; min-width: 0; padding: 8px 12px; text-align: left; }
+  .card-name { font-weight: 600; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-name.empty { color: #525252; }
+  .card-model { font-size: 11px; color: rgba(251,146,60,0.9); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-loc { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: #525252; }
+  .card-loc svg { width: 12px; height: 12px; }
+  .card-loc span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-qty { display: flex; align-items: center; padding-right: 8px; gap: 2px; }
+  .qty-btn { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #a3a3a3; transition: all 0.15s; }
+  .qty-btn:hover { background: #262626; }
+  .qty-btn.plus { color: #fb923c; }
+  .qty-btn:active { transform: scale(0.9); }
+  .qty-num { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-weight: 700; font-size: 18px; width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; padding: 80px 24px 24px; }
+  .empty-icon-wrap { width: 64px; height: 64px; border-radius: 16px; background: #171717; border: 1px solid #262626; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .empty-icon-wrap svg { width: 28px; height: 28px; color: #525252; }
+  .empty h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+  .empty p { margin: 0; font-size: 14px; color: #737373; }
+  .empty .accent { color: #fb923c; }
+  .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; background: #fb923c; color: #0a0a0a; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 20; transition: transform 0.1s, background 0.15s; animation: pulse-ring 1.8s infinite; }
+  .fab:hover { background: #fdba74; }
+  .fab:active { transform: scale(0.95); }
+  @keyframes pulse-ring { 0% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 0 rgba(251,146,60,0.4); } 100% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 14px rgba(251,146,60,0); } }
+  .fab svg { width: 24px; height: 24px; }
+  .toast { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); background: #262626; border: 1px solid #404040; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 60; box-shadow: 0 20px 40px rgba(0,0,0,0.5); animation: slideUp 0.25s ease-out; max-width: 90vw; text-align: center; }
+  .toast.error { border-color: #ef4444; }
+  .toast.success { border-color: #fb923c; }
+  @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  .form { padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+  .field-label { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 8px; }
+  .field-label svg { width: 14px; height: 14px; }
+  .input, .textarea, .select { width: 100%; background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 12px 16px; color: #fafafa; font-size: 14px; outline: none; transition: border-color 0.15s; }
+  .input::placeholder, .textarea::placeholder { color: #404040; }
+  .input:focus, .textarea:focus, .select:focus { border-color: #fb923c; }
+  .input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
+  .textarea { resize: none; }
+  .qty-input-wrap { display: flex; align-items: center; background: #171717; border: 1px solid #262626; border-radius: 12px; overflow: hidden; }
+  .qty-input-btn { padding: 12px 16px; transition: background 0.15s; }
+  .qty-input-btn:hover { background: #262626; }
+  .qty-input-btn.plus { color: #fb923c; }
+  .qty-input-btn:active { transform: scale(0.95); }
+  .qty-input { flex: 1; background: transparent; border: none; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-weight: 700; font-size: 20px; color: #fafafa; padding: 12px 0; outline: none; font-variant-numeric: tabular-nums; }
+  .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .save-btn { background: #fb923c; color: #0a0a0a; font-weight: 700; font-size: 14px; padding: 8px 16px; border-radius: 8px; display: flex; align-items: center; gap: 6px; transition: background 0.15s, transform 0.1s; }
+  .save-btn:hover { background: #fdba74; }
+  .save-btn:active { transform: scale(0.95); }
+  .save-btn svg { width: 16px; height: 16px; }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* 写真アップロードエリア */
+  .photo-upload { width: 100%; border: 2px dashed #262626; border-radius: 12px; padding: 24px 16px; transition: all 0.15s; text-align: center; }
+  .photo-upload.drag-over { border-color: #fb923c; background: rgba(251,146,60,0.08); transform: scale(1.01); }
+  .photo-upload-icon-wrap { width: 48px; height: 48px; border-radius: 12px; background: #262626; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .photo-upload-icon-wrap svg { width: 22px; height: 22px; color: #fb923c; }
+  .photo-upload-title { font-size: 14px; color: #fafafa; font-weight: 600; margin-bottom: 16px; }
+  .photo-upload-buttons { display: flex; gap: 8px; margin-bottom: 12px; }
+  .photo-btn { flex: 1; background: #262626; padding: 12px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 13px; font-weight: 600; color: #fafafa; transition: all 0.15s; min-height: 60px; }
+  .photo-btn:hover { background: #404040; transform: translateY(-1px); }
+  .photo-btn:active { transform: scale(0.97); }
+  .photo-btn svg { width: 20px; height: 20px; color: #fb923c; }
+  .photo-upload-hint { font-size: 11px; color: #525252; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; letter-spacing: 0.05em; }
+  .desktop-only { display: none; }
+  .mobile-only { display: inline; }
+  @media (hover: hover) and (pointer: fine) {
+    .desktop-only { display: inline; }
+    .mobile-only { display: none; }
+  }
+  .photo-preview { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #262626; background: #171717; transition: all 0.15s; }
+  .photo-preview.drag-over { border-color: #fb923c; box-shadow: 0 0 0 3px rgba(251,146,60,0.2); }
+  .photo-preview img { width: 100%; max-height: 280px; object-fit: contain; display: block; }
+  .photo-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 8px; }
+  .photo-action { background: rgba(23,23,23,0.9); backdrop-filter: blur(8px); border: 1px solid #404040; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .photo-action svg { width: 14px; height: 14px; }
+  .photo-action.compact { padding: 6px; }
+
+  /* マルチ写真グリッド (フォーム) */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .photo-tile { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid #262626; background: #171717; }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-tile .remove { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; color: #fafafa; cursor: pointer; }
+  .photo-tile .remove svg { width: 14px; height: 14px; }
+  .photo-tile.add-tile { border-style: dashed; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .photo-tile.add-tile:hover { border-color: #fb923c; background: rgba(251,146,60,0.05); }
+  .photo-tile.add-tile svg { width: 24px; height: 24px; color: #525252; }
+  .photo-tile.add-tile span { font-size: 11px; color: #525252; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .photo-tile.add-tile .add-content { display: flex; flex-direction: column; align-items: center; }
+  .photo-count { font-size: 11px; color: #737373; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-left: 8px; }
+
+  /* 詳細画面のギャラリー */
+  .gallery { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #262626; background: #171717; margin-bottom: 16px; }
+  .gallery-main { width: 100%; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; background: #0a0a0a; }
+  .gallery-main img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; color: #fafafa; cursor: pointer; transition: all 0.15s; }
+  .gallery-nav:hover { background: rgba(0,0,0,0.85); }
+  .gallery-nav svg { width: 18px; height: 18px; }
+  .gallery-nav.prev { left: 8px; }
+  .gallery-nav.next { right: 8px; }
+  .gallery-indicator { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px 10px; background: rgba(0,0,0,0.6); border-radius: 999px; backdrop-filter: blur(8px); }
+  .gallery-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); transition: all 0.15s; }
+  .gallery-dot.active { background: #fb923c; width: 18px; border-radius: 3px; }
+
+  /* リストカードのマルチ写真インジケータ */
+  .card-thumb { position: relative; }
+  .card-thumb .photo-badge { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fafafa; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* AI画像検索ボタン */
+  .ai-search-btn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #a3a3a3; background: #171717; border: 1px solid #262626; flex-shrink: 0; transition: all 0.15s; }
+  .ai-search-btn:hover { background: #262626; color: #fb923c; border-color: #fb923c; }
+  .ai-search-btn:active { transform: scale(0.92); }
+  .ai-search-btn svg { width: 18px; height: 18px; }
+  .search-row { display: flex; gap: 8px; align-items: stretch; }
+  .search-row .search-wrap { flex: 1; }
+
+  /* AI検索結果画面 */
+  .ai-result-section { padding: 16px 20px; }
+  .ai-query-preview { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 12px; margin-bottom: 20px; display: flex; gap: 12px; align-items: center; }
+  .ai-query-thumb { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #262626; }
+  .ai-query-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .ai-query-info { flex: 1; }
+  .ai-query-info .label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: #737373; text-transform: uppercase; letter-spacing: 0.15em; }
+  .ai-query-info .count { font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .ai-query-info .count .num { color: #fb923c; }
+  .ai-result-card { position: relative; }
+  .similarity-badge { position: absolute; top: 8px; right: 8px; background: rgba(251,146,60,0.95); color: #0a0a0a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 6px; z-index: 1; }
+  .similarity-badge.high { background: rgba(34,197,94,0.95); color: #0a0a0a; }
+  .similarity-badge.low { background: rgba(115,115,115,0.95); color: #fafafa; }
+  .ai-status { text-align: center; padding: 60px 24px; color: #737373; }
+  .ai-status .loader { margin: 0 auto 16px; width: 32px; height: 32px; border-width: 3px; }
+  .ai-status .msg { font-size: 14px; line-height: 1.6; }
+  .ai-status .sub { font-size: 11px; color: #525252; margin-top: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .detail { padding: 24px 20px; }
+  .detail-photo { border-radius: 16px; overflow: hidden; border: 1px solid #262626; background: #171717; margin-bottom: 24px; }
+  .detail-photo img { width: 100%; max-height: 380px; object-fit: contain; display: block; }
+  .detail-photo-empty { height: 192px; display: flex; align-items: center; justify-content: center; }
+  .detail-photo-empty svg { width: 48px; height: 48px; color: #404040; }
+  .detail h2 { margin: 0 0 4px; font-size: 24px; font-weight: 900; line-height: 1.15; }
+  .detail h2.empty { color: #525252; }
+  .detail-model { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 14px; color: #fb923c; margin-bottom: 24px; }
+  .qty-card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .qty-card-label { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 12px; }
+  .qty-card-row { display: flex; align-items: center; justify-content: space-between; }
+  .qty-circle-btn { width: 48px; height: 48px; border-radius: 50%; background: #262626; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .qty-circle-btn:hover { background: #404040; }
+  .qty-circle-btn.plus { background: #fb923c; color: #0a0a0a; }
+  .qty-circle-btn.plus:hover { background: #fdba74; }
+  .qty-circle-btn:active { transform: scale(0.9); }
+  .qty-circle-btn svg { width: 20px; height: 20px; }
+  .qty-display { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-weight: 900; font-size: 48px; font-variant-numeric: tabular-nums; }
+  .info-row { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .info-row .label { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 8px; }
+  .info-row .label svg { width: 16px; height: 16px; }
+  .info-row .value { font-size: 14px; }
+  .info-row .value.multi { white-space: pre-wrap; }
+  .meta-bottom { margin-top: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; color: #404040; text-transform: uppercase; letter-spacing: 0.15em; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: flex-end; justify-content: center; padding: 16px; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (min-width: 640px) { .modal-overlay { align-items: center; } }
+  .modal { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 24px; max-width: 420px; width: 100%; animation: slideUpModal 0.25s ease-out; max-height: 85vh; overflow-y: auto; }
+  @keyframes slideUpModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .modal-icon-wrap { width: 40px; height: 40px; border-radius: 50%; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .modal-icon-wrap svg { width: 20px; height: 20px; color: #f87171; }
+  .modal h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+  .modal p { margin: 0; font-size: 14px; color: #a3a3a3; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-btn { flex: 1; padding: 12px; border-radius: 8px; font-weight: 500; transition: background 0.15s; }
+  .modal-btn.cancel { background: #262626; }
+  .modal-btn.cancel:hover { background: #404040; }
+  .modal-btn.confirm { background: #ef4444; color: white; }
+  .modal-btn.confirm:hover { background: #dc2626; }
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.2s; }
+  .sheet { background: #171717; border-top: 1px solid #262626; border-radius: 20px 20px 0 0; padding: 12px 0 32px; max-width: 640px; width: 100%; animation: slideUpSheet 0.25s ease-out; }
+  @keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .sheet-handle { width: 36px; height: 4px; background: #404040; border-radius: 2px; margin: 0 auto 16px; }
+  .sheet-title { padding: 0 24px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; border-bottom: 1px solid #262626; }
+  .sheet-item { display: flex; align-items: center; gap: 14px; padding: 14px 24px; width: 100%; text-align: left; transition: background 0.15s; }
+  .sheet-item:hover { background: #262626; }
+  .sheet-item:active { background: #404040; }
+  .sheet-item-icon { width: 36px; height: 36px; border-radius: 10px; background: #262626; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sheet-item-icon svg { width: 18px; height: 18px; color: #fb923c; }
+  .sheet-item-text { flex: 1; }
+  .sheet-item-text .title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .sheet-item-text .sub { font-size: 11px; color: #737373; }
+  .import-section { padding: 24px 20px; }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .stat-cell { text-align: center; }
+  .stat-cell .num { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-weight: 900; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .stat-cell .num.accent { color: #fb923c; }
+  .stat-cell .label { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #737373; margin-top: 2px; }
+  .mode-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .mode-option { display: flex; gap: 12px; padding: 14px 16px; background: #171717; border: 1px solid #262626; border-radius: 12px; cursor: pointer; transition: all 0.15s; text-align: left; width: 100%; }
+  .mode-option:hover { border-color: #404040; }
+  .mode-option.selected { border-color: #fb923c; background: rgba(251,146,60,0.05); }
+  .mode-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #525252; flex-shrink: 0; margin-top: 2px; position: relative; transition: all 0.15s; }
+  .mode-option.selected .mode-radio { border-color: #fb923c; }
+  .mode-option.selected .mode-radio::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: #fb923c; border-radius: 50%; }
+  .mode-text .title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .mode-text .desc { font-size: 12px; color: #a3a3a3; line-height: 1.4; }
+  .preview-table-wrap { background: #171717; border: 1px solid #262626; border-radius: 12px; overflow: auto; margin-bottom: 16px; max-height: 280px; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .preview-table th, .preview-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #262626; white-space: nowrap; }
+  .preview-table th { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #737373; background: #0f0f0f; position: sticky; top: 0; }
+  .preview-table tr:last-child td { border-bottom: none; }
+  .preview-table td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; color: #fb923c; }
+  .mapping-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0f0f0f; border-radius: 8px; font-size: 12px; margin-bottom: 4px; }
+  .mapping-row .from { color: #a3a3a3; }
+  .mapping-row .arrow { color: #525252; margin: 0 8px; }
+  .mapping-row .to { color: #fb923c; font-weight: 600; }
+  .mapping-row .to.unmapped { color: #525252; }
+  .exec-btn { width: 100%; background: #fb923c; color: #0a0a0a; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s, transform 0.1s; }
+  .exec-btn:hover { background: #fdba74; }
+  .exec-btn:active { transform: scale(0.98); }
+  .exec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .exec-btn svg { width: 18px; height: 18px; }
+  .section-label { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #737373; margin-bottom: 8px; }
+  .hidden { display: none !important; }
+  .anim-up { animation: viewIn 0.25s ease-out; }
+  @keyframes viewIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .install-banner { position: fixed; bottom: 24px; left: 24px; right: 24px; max-width: 400px; margin: 0 auto; background: #171717; border: 1px solid #fb923c; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); z-index: 30; }
+  .install-banner-text { flex: 1; font-size: 13px; }
+  .install-banner-text strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .install-banner-text small { color: #a3a3a3; font-size: 11px; }
+  .install-btn { background: #fb923c; color: #0a0a0a; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+  .install-close { padding: 4px; color: #737373; }
+
+  /* Sync status indicator */
+  .sync-status { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #525252; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #525252; flex-shrink: 0; }
+  .sync-dot.synced { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+  .sync-dot.connecting { background: #fb923c; animation: pulse 1.5s infinite; }
+  .sync-dot.offline { background: #eab308; }
+  .sync-dot.error { background: #ef4444; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Duplicate warning modal */
+  .modal-icon-wrap.warn { background: rgba(251,146,60,0.1); }
+  .modal-icon-wrap.warn svg { color: #fb923c; }
+  .dup-preview { background: #0f0f0f; border: 1px solid #262626; border-radius: 12px; padding: 12px; margin: 12px 0; display: flex; gap: 12px; align-items: center; }
+  .dup-preview-thumb { width: 48px; height: 48px; border-radius: 8px; background: #262626; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .dup-preview-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .dup-preview-thumb svg { width: 20px; height: 20px; color: #525252; }
+  .dup-preview-info { flex: 1; min-width: 0; }
+  .dup-preview-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dup-preview-model { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #fb923c; margin-top: 2px; }
+  .dup-preview-meta { font-size: 11px; color: #737373; margin-top: 2px; }
+  .modal-actions.stack { flex-direction: column; }
+  .modal-btn.primary { background: #fb923c; color: #0a0a0a; font-weight: 700; }
+  .modal-btn.primary:hover { background: #fdba74; }
+  .modal-btn.secondary { background: #262626; color: #fafafa; }
+  .modal-btn.secondary:hover { background: #404040; }
+
+  /* Setup screen */
+  .setup-screen { padding: 40px 24px; max-width: 520px; margin: 0 auto; }
+  .setup-icon { width: 64px; height: 64px; border-radius: 16px; background: rgba(251,146,60,0.1); border: 1px solid #fb923c; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .setup-icon svg { width: 28px; height: 28px; color: #fb923c; }
+  .setup-screen h2 { margin: 0 0 8px; font-size: 22px; font-weight: 900; text-align: center; }
+  .setup-screen .lead { text-align: center; color: #a3a3a3; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+  .setup-step { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .setup-step-num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #fb923c; font-weight: 700; margin-bottom: 4px; }
+  .setup-step-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .setup-step-desc { font-size: 13px; color: #a3a3a3; line-height: 1.5; }
+  .setup-step-desc code { background: #0f0f0f; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #fb923c; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-pkg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+<symbol id="i-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+<symbol id="i-img" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+<symbol id="i-sheet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L13.9 8.5L19.5 9.4L15.3 13.2L16.2 18.8L12 16.1L7.8 18.8L8.7 13.2L4.5 9.4L10.1 8.5L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4" stroke-width="1.5"/></symbol>
+<symbol id="i-photo-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="14" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="17" cy="19" r="3"/><path d="m21 23-2-2"/></symbol>
+</defs></svg>
+
+<div id="app" class="container"></div>
+
+<div id="install-banner" class="install-banner hidden">
+  <div class="install-banner-text">
+    <strong>📲 ホーム画面に追加</strong>
+    <small>Safari共有 → ホーム画面に追加</small>
+  </div>
+  <button class="install-btn" id="install-btn">追加</button>
+  <button class="install-close" id="install-close"><svg width="16" height="16"><use href="#i-x"/></svg></button>
+</div>
+
+<input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none">
+
+<!-- Firebase SDK (Google CDN - 多くの企業ネットワークで許可されています) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// ⚙️ Firebase設定をここに貼り付けてください
+// (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
+// ═══════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+// ═══════════════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'spare-parts-v1';   // 旧localStorage用(マイグレーション用に保持)
+const SHEETJS_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+
+let state = {
+  parts: [],
+  view: 'list',
+  search: '',
+  form: emptyForm(),
+  selectedId: null,
+  confirmDel: false,
+  menuOpen: false,
+  import: null,
+  duplicate: null,
+  syncStatus: 'connecting',
+  initialized: false,
+  galleryIndex: 0,        // 詳細画面の写真ギャラリー現在位置
+  ai: null,               // AI画像検索の状態 { phase: 'loading'|'analyzing'|'done', query, results, error }
+};
+
+// Firebase接続オブジェクト(後で初期化)
+let db = null;
+let auth = null;
+let unsubscribe = null;
+
+function emptyForm() {
+  return { id: null, name: '', model: '', quantity: 0, location: '', notes: '', photos: [], embeddings: [] };
+}
+
+// ────── Firebase 初期化 ──────
+function isFirebaseConfigured() {
+  return firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('YOUR_API_KEY');
+}
+
+async function initFirebase() {
+  if (!isFirebaseConfigured()) {
+    state.view = 'setup';
+    state.initialized = true;
+    render();
+    return;
+  }
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    auth = firebase.auth();
+
+    // オフライン対応 (失敗しても無視 - 複数タブ等で発生する想定)
+    try { await db.enablePersistence({ synchronizeTabs: true }); } catch {}
+
+    // 匿名サインイン
+    await auth.signInAnonymously();
+
+    // リアルタイム購読開始
+    startSync();
+
+    // localStorageからの初回マイグレーション
+    await checkMigration();
+
+    state.initialized = true;
+  } catch (e) {
+    state.syncStatus = 'error';
+    state.initialized = true;
+    flash('Firebase接続エラー: ' + e.message, 'error');
+    render();
+  }
+}
+
+function startSync() {
+  state.syncStatus = 'connecting';
+  unsubscribe = db.collection('parts')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(
+      (snapshot) => {
+        state.parts = snapshot.docs.map(doc => {
+          const d = doc.data();
+          // 旧形式 photo:string → photos:[string] へマイグレーション(読み取り時)
+          let photos = Array.isArray(d.photos) ? d.photos.filter(Boolean) : [];
+          if (photos.length === 0 && d.photo) photos = [d.photo];
+          let embeddings = Array.isArray(d.embeddings) ? d.embeddings : [];
+          return {
+            id: doc.id,
+            name: d.name || '',
+            model: d.model || '',
+            quantity: Number(d.quantity) || 0,
+            location: d.location || '',
+            notes: d.notes || '',
+            photos: photos,
+            embeddings: embeddings,
+            createdAt: d.createdAt?.toDate?.()?.toISOString() || null,
+          };
+        });
+        state.syncStatus = snapshot.metadata.fromCache ? 'offline' : 'synced';
+        render();
+      },
+      (error) => {
+        state.syncStatus = 'error';
+        flash('同期エラー: ' + error.message, 'error');
+        render();
+      }
+    );
+}
+
+async function checkMigration() {
+  const localData = localStorage.getItem(STORAGE_KEY);
+  if (!localData) return;
+  if (localStorage.getItem(STORAGE_KEY + '_migrated')) return;
+
+  let parts;
+  try { parts = JSON.parse(localData); } catch { return; }
+  if (!Array.isArray(parts) || parts.length === 0) return;
+
+  // クラウドに既にデータがあるか確認
+  const snap = await db.collection('parts').limit(1).get();
+  if (!snap.empty) {
+    if (!confirm(`クラウドに既にデータがあります。\nローカルにある${parts.length}件の古いデータも追加で取り込みますか?\n(キャンセル=何もしない)`)) {
+      localStorage.setItem(STORAGE_KEY + '_migrated', 'skipped');
+      return;
+    }
+  }
+
+  try {
+    // Firestore batchは500件まで - 念のため分割
+    for (let i = 0; i < parts.length; i += 400) {
+      const batch = db.batch();
+      parts.slice(i, i + 400).forEach(p => {
+        const ref = db.collection('parts').doc();
+        batch.set(ref, {
+          name: p.name || '',
+          model: p.model || '',
+          quantity: Number(p.quantity) || 0,
+          location: p.location || '',
+          notes: p.notes || '',
+          photos: p.photo ? [p.photo] : (Array.isArray(p.photos) ? p.photos : []),
+          embeddings: [],  // 移行時は埋め込み未計算
+          createdAt: p.createdAt
+            ? firebase.firestore.Timestamp.fromDate(new Date(p.createdAt))
+            : firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+    localStorage.setItem(STORAGE_KEY + '_backup', localData);
+    localStorage.setItem(STORAGE_KEY + '_migrated', 'true');
+    flash(`${parts.length}件のローカルデータをクラウドに移行しました`, 'success');
+  } catch (e) {
+    flash('移行エラー: ' + e.message, 'error');
+  }
+}
+
+// 写真は1MB制限のため少し強めに圧縮 (720px / quality 0.65)
+function resizeImage(file, maxWidth = 720, quality = 0.65) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ratio = Math.min(1, maxWidth / img.width);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AI画像検索 (TensorFlow.js + MobileNet)
+// 初回のみ約5MBのモデルダウンロードあり、以降はキャッシュ
+// ═══════════════════════════════════════════════════════════════════
+const TFJS_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js';
+const MOBILENET_URL = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js';
+
+let mobileNetModel = null;
+let mobileNetPromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('スクリプト読み込み失敗: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadMobileNet() {
+  if (mobileNetModel) return mobileNetModel;
+  if (mobileNetPromise) return mobileNetPromise;
+  mobileNetPromise = (async () => {
+    if (!window.tf) await loadScript(TFJS_URL);
+    if (!window.mobilenet) await loadScript(MOBILENET_URL);
+    // alpha=0.5: 軽量バージョン (約5MB)。alpha=1.0は精度高いが17MB
+    mobileNetModel = await window.mobilenet.load({ version: 2, alpha: 0.5 });
+    return mobileNetModel;
+  })();
+  return mobileNetPromise;
+}
+
+// 画像のdata URLから1280次元の特徴ベクトルを計算
+async function computeEmbedding(dataUrl) {
+  const model = await loadMobileNet();
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error('画像の読み込み失敗'));
+    img.src = dataUrl;
+  });
+  // model.infer(img, true) で分類前の埋め込みベクトルを取得
+  const tensor = model.infer(img, true);
+  const data = await tensor.data();
+  tensor.dispose();
+  // Float32Array → 通常配列に変換し小数点以下を切り詰め(Firestore保存量削減)
+  return Array.from(data).map(v => Math.round(v * 10000) / 10000);
+}
+
+// コサイン類似度
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length === 0 || b.length === 0) return 0;
+  let dot = 0, normA = 0, normB = 0;
+  const len = Math.min(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// 検索画像とDB内全部品の各写真を比較し、類似度でソート
+function rankBySimilarity(queryEmb, parts) {
+  const ranked = [];
+  for (const p of parts) {
+    if (!Array.isArray(p.embeddings) || p.embeddings.length === 0) continue;
+    let maxSim = -1;
+    for (const emb of p.embeddings) {
+      if (!Array.isArray(emb) || emb.length === 0) continue;
+      const sim = cosineSimilarity(queryEmb, emb);
+      if (sim > maxSim) maxSim = sim;
+    }
+    if (maxSim > 0) ranked.push({ part: p, similarity: maxSim });
+  }
+  ranked.sort((a, b) => b.similarity - a.similarity);
+  return ranked.slice(0, 10);  // 上位10件
+}
+
+// AI検索の起動: ファイル選択 → 解析 → 結果表示
+async function runAiSearch(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    flash('画像ファイルを選択してください', 'error');
+    return;
+  }
+  state.ai = { phase: 'analyzing', query: '', results: [], error: null };
+  state.view = 'ai-search';
+  render();
+  try {
+    const dataUrl = await resizeImage(file);
+    state.ai.query = dataUrl;
+    render();
+    const emb = await computeEmbedding(dataUrl);
+    // 既存部品で埋め込みがあるものを対象に検索
+    const candidates = state.parts.filter(p => Array.isArray(p.embeddings) && p.embeddings.some(e => Array.isArray(e) && e.length > 0));
+    if (candidates.length === 0) {
+      state.ai.phase = 'done';
+      state.ai.error = '検索可能な部品がありません。\n各部品に写真を追加すると、自動的にAI検索の対象になります。';
+      render();
+      return;
+    }
+    state.ai.results = rankBySimilarity(emb, candidates);
+    state.ai.phase = 'done';
+    render();
+  } catch (e) {
+    state.ai.phase = 'done';
+    state.ai.error = 'AI解析エラー: ' + e.message;
+    render();
+  }
+}
+
+function flash(msg, kind) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast' + (kind ? ' ' + kind : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function getDateStr() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function getFiltered() {
+  const s = state.search.trim().toLowerCase();
+  if (!s) return state.parts;
+  return state.parts.filter(p =>
+    (p.name || '').toLowerCase().includes(s) ||
+    (p.model || '').toLowerCase().includes(s) ||
+    (p.location || '').toLowerCase().includes(s)
+  );
+}
+
+// CSV parser
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function csvCell(v) {
+  const s = String(v == null ? '' : v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function buildCSV() {
+  const headers = ['部品名', '型式', '個数', '設置場所', 'メモ', '登録日'];
+  const lines = [headers.join(',')];
+  state.parts.forEach(p => {
+    lines.push([
+      p.name || '', p.model || '', p.quantity || 0,
+      p.location || '', p.notes || '',
+      p.createdAt ? new Date(p.createdAt).toLocaleDateString('ja-JP') : ''
+    ].map(csvCell).join(','));
+  });
+  return '\uFEFF' + lines.join('\r\n');
+}
+
+const COLUMN_ALIASES = {
+  name: ['部品名', '品名', '名前', '名称', 'name', 'part name', 'part_name'],
+  model: ['型式', '型番', '品番', 'model', 'model no', 'model_no', 'part no', 'part_no'],
+  quantity: ['個数', '数量', '在庫', '在庫数', 'quantity', 'qty', 'count', 'stock'],
+  location: ['設置場所', '保管場所', '場所', '棚番', 'location', 'place', 'storage'],
+  notes: ['メモ', '備考', 'コメント', 'notes', 'note', 'remark', 'memo']
+};
+
+function detectColumn(header) {
+  const h = String(header).trim().toLowerCase();
+  for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
+    if (aliases.some(a => a.toLowerCase() === h)) return field;
+  }
+  return null;
+}
+
+function buildMapping(headers) {
+  return headers.map(h => detectColumn(h));
+}
+
+// SheetJS lazy load
+let sheetJSPromise = null;
+function loadSheetJS() {
+  if (window.XLSX) return Promise.resolve();
+  if (sheetJSPromise) return sheetJSPromise;
+  sheetJSPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = SHEETJS_URL;
+    s.onload = () => resolve();
+    s.onerror = () => {
+      sheetJSPromise = null;
+      reject(new Error('Excel機能の読み込みに失敗 (初回はオンライン必要)'));
+    };
+    document.head.appendChild(s);
+  });
+  return sheetJSPromise;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportCSV() {
+  if (state.parts.length === 0) { flash('登録されている部品がありません', 'error'); return; }
+  const csv = buildCSV();
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `部品リスト_${getDateStr()}.csv`);
+  flash(`CSV出力完了 (${state.parts.length}件)`, 'success');
+}
+
+async function exportExcel() {
+  if (state.parts.length === 0) { flash('登録されている部品がありません', 'error'); return; }
+  flash('Excelファイル生成中...');
+  try {
+    await loadSheetJS();
+  } catch (e) {
+    flash(e.message, 'error');
+    return;
+  }
+  const data = [
+    ['部品名', '型式', '個数', '設置場所', 'メモ', '登録日'],
+    ...state.parts.map(p => [
+      p.name || '', p.model || '', Number(p.quantity) || 0,
+      p.location || '', p.notes || '',
+      p.createdAt ? new Date(p.createdAt).toLocaleDateString('ja-JP') : ''
+    ])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:24}, {wch:20}, {wch:8}, {wch:20}, {wch:32}, {wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '部品リスト');
+  XLSX.writeFile(wb, `部品リスト_${getDateStr()}.xlsx`);
+  flash(`Excel出力完了 (${state.parts.length}件)`, 'success');
+}
+
+async function handleImportFile(file) {
+  if (!file) return;
+  const fileName = file.name;
+  const lower = fileName.toLowerCase();
+  let rows = [];
+  let sourceFmt = '';
+  try {
+    if (lower.endsWith('.csv')) {
+      const text = await file.text();
+      rows = parseCSV(text);
+      sourceFmt = 'CSV';
+    } else if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
+      flash('Excelファイル読み込み中...');
+      await loadSheetJS();
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      sourceFmt = 'Excel';
+    } else {
+      flash('CSVまたはExcelファイルを選択してください', 'error');
+      return;
+    }
+  } catch (e) {
+    flash('ファイル読み込みエラー: ' + e.message, 'error');
+    return;
+  }
+  if (rows.length < 1) { flash('ファイルが空です', 'error'); return; }
+  const headers = rows[0].map(h => String(h || '').trim());
+  const dataRows = rows.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
+  if (dataRows.length === 0) { flash('データ行が見つかりません', 'error'); return; }
+  const mapping = buildMapping(headers);
+  if (!mapping.includes('name') && !mapping.includes('model')) {
+    flash('「部品名」または「型式」列が見つかりません', 'error');
+    return;
+  }
+  state.import = { fileName, sourceFmt, headers, rows: dataRows, mapping, mode: 'merge' };
+  state.view = 'import';
+  state.menuOpen = false;
+  render();
+}
+
+function rowsToParts(rows, mapping) {
+  return rows.map(row => {
+    const p = { name: '', model: '', quantity: 0, location: '', notes: '', photos: [], embeddings: [] };
+    mapping.forEach((field, idx) => {
+      if (!field) return;
+      const raw = row[idx];
+      const v = (raw == null ? '' : String(raw)).trim();
+      if (field === 'quantity') {
+        const n = parseInt(v.replace(/[^0-9-]/g, ''), 10);
+        p.quantity = isNaN(n) ? 0 : Math.max(0, n);
+      } else {
+        p[field] = v;
+      }
+    });
+    return p;
+  }).filter(p => p.name || p.model);
+}
+
+async function executeImport() {
+  const imp = state.import;
+  if (!imp) return;
+  const newParts = rowsToParts(imp.rows, imp.mapping);
+  let added = 0, updated = 0, replaced = 0;
+
+  flash('インポート処理中...');
+
+  try {
+    if (imp.mode === 'add') {
+      // 400件ごとにバッチ
+      for (let i = 0; i < newParts.length; i += 400) {
+        const batch = db.batch();
+        newParts.slice(i, i + 400).forEach(p => {
+          const ref = db.collection('parts').doc();
+          batch.set(ref, {
+            name: p.name || '', model: p.model || '',
+            quantity: Number(p.quantity) || 0,
+            location: p.location || '', notes: p.notes || '', photos: [], embeddings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          added++;
+        });
+        await batch.commit();
+      }
+    } else if (imp.mode === 'replace') {
+      // 既存を全削除してから追加
+      const all = await db.collection('parts').get();
+      for (let i = 0; i < all.docs.length; i += 400) {
+        const batch = db.batch();
+        all.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+      for (let i = 0; i < newParts.length; i += 400) {
+        const batch = db.batch();
+        newParts.slice(i, i + 400).forEach(p => {
+          const ref = db.collection('parts').doc();
+          batch.set(ref, {
+            name: p.name || '', model: p.model || '',
+            quantity: Number(p.quantity) || 0,
+            location: p.location || '', notes: p.notes || '', photos: [], embeddings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+        await batch.commit();
+      }
+      replaced = newParts.length;
+    } else {
+      // マージ: 既存照合
+      for (const p of newParts) {
+        let found = null;
+        if (p.model) found = state.parts.find(x => x.model && x.model.toLowerCase() === p.model.toLowerCase());
+        if (!found && p.name) found = state.parts.find(x => !x.model && x.name && x.name.toLowerCase() === p.name.toLowerCase());
+        if (found) {
+          const updateData = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+          if (p.name) updateData.name = p.name;
+          if (p.quantity !== undefined) updateData.quantity = Number(p.quantity) || 0;
+          if (p.location) updateData.location = p.location;
+          if (p.notes) updateData.notes = p.notes;
+          await db.collection('parts').doc(found.id).update(updateData);
+          updated++;
+        } else {
+          await db.collection('parts').add({
+            name: p.name || '', model: p.model || '',
+            quantity: Number(p.quantity) || 0,
+            location: p.location || '', notes: p.notes || '', photos: [], embeddings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          added++;
+        }
+      }
+    }
+
+    state.import = null;
+    state.view = 'list';
+    let msg;
+    if (imp.mode === 'replace') msg = `${replaced}件で全置換しました`;
+    else if (imp.mode === 'add') msg = `${added}件を追加しました`;
+    else msg = `${updated}件更新 / ${added}件追加`;
+    flash(msg, 'success');
+    render();
+  } catch (e) {
+    flash('インポートエラー: ' + e.message, 'error');
+  }
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (!state.initialized) {
+    app.innerHTML = `<div style="padding:80px 24px;text-align:center;color:#737373;">
+      <div class="loader" style="margin:0 auto 16px;width:24px;height:24px;border-width:3px;"></div>
+      接続中...
+    </div>`;
+    return;
+  }
+  if (state.view === 'setup') { app.innerHTML = renderSetup(); return; }
+  if (state.view === 'list') { app.innerHTML = renderList(); bindListEvents(); }
+  else if (state.view === 'form') { app.innerHTML = renderForm(); bindFormEvents(); }
+  else if (state.view === 'detail') { app.innerHTML = renderDetail(); bindDetailEvents(); }
+  else if (state.view === 'import') { app.innerHTML = renderImport(); bindImportEvents(); }
+  else if (state.view === 'ai-search') { app.innerHTML = renderAiSearch(); bindAiSearchEvents(); }
+
+  document.querySelector('.modal-overlay')?.remove();
+  document.querySelector('.sheet-overlay')?.remove();
+  if (state.confirmDel) {
+    document.body.insertAdjacentHTML('beforeend', renderModal());
+    bindModalEvents();
+  }
+  if (state.duplicate) {
+    document.body.insertAdjacentHTML('beforeend', renderDuplicateModal());
+    bindDuplicateModalEvents();
+  }
+  if (state.menuOpen) {
+    document.body.insertAdjacentHTML('beforeend', renderMenuSheet());
+    bindMenuEvents();
+  }
+}
+
+function renderSetup() {
+  return `
+    <div class="setup-screen anim-up">
+      <div class="setup-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <h2>セットアップが必要です</h2>
+      <p class="lead">複数人でデータを共有するには、Firebase(無料)の設定が必要です。<br>下記の手順で進めてください。</p>
+      <div class="setup-step">
+        <div class="setup-step-num">STEP 1</div>
+        <div class="setup-step-title">Firebaseプロジェクトを作成</div>
+        <div class="setup-step-desc"><code>console.firebase.google.com</code> でGoogleアカウントでサインインし、プロジェクトを作成</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">STEP 2</div>
+        <div class="setup-step-title">Anonymous認証を有効化</div>
+        <div class="setup-step-desc">Authentication → Sign-in method → Anonymous を有効に</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">STEP 3</div>
+        <div class="setup-step-title">Firestoreデータベースを作成</div>
+        <div class="setup-step-desc">Firestore Database → 「データベースを作成」(asia-northeast1 推奨)</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">STEP 4</div>
+        <div class="setup-step-title">設定情報を index.html に貼り付け</div>
+        <div class="setup-step-desc">プロジェクト設定 → 全般 → SDK setup から <code>firebaseConfig</code> オブジェクトをコピーし、index.html 上部の同名箇所に貼り付け</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">STEP 5</div>
+        <div class="setup-step-title">セキュリティルールを設定</div>
+        <div class="setup-step-desc">Firestoreの「ルール」タブで <code>allow read, write: if request.auth != null;</code> に設定して公開</div>
+      </div>
+      <p class="lead" style="margin-top:24px;font-size:12px;">詳しい手順は配布元の README をご確認ください。</p>
+    </div>
+  `;
+}
+
+function renderDuplicateModal() {
+  const f = state.form;
+  const dup = state.duplicate;
+  const matchBy = (f.model && dup.model && f.model.toLowerCase() === dup.model.toLowerCase()) ? '型式' : '部品名';
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div>
+            <h3>同じ${matchBy}が既に登録されています</h3>
+            <p>このまま保存すると重複してしまう可能性があります。</p>
+          </div>
+        </div>
+        <div class="dup-preview">
+          <div class="dup-preview-thumb">
+            ${(dup.photos && dup.photos[0]) ? `<img src="${dup.photos[0]}">` : `<svg><use href="#i-pkg"/></svg>`}
+          </div>
+          <div class="dup-preview-info">
+            <div class="dup-preview-name">${esc(dup.name || '(無題)')}</div>
+            <div class="dup-preview-model">${esc(dup.model || '—')}</div>
+            <div class="dup-preview-meta">個数: ${dup.quantity || 0}${dup.location ? ' / ' + esc(dup.location) : ''}</div>
+          </div>
+        </div>
+        <div class="modal-actions stack">
+          <button class="modal-btn primary" id="dup-goto">既存の部品を開く</button>
+          <button class="modal-btn secondary" id="dup-save">それでも新規登録する</button>
+          <button class="modal-btn cancel" id="dup-cancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindDuplicateModalEvents() {
+  document.getElementById('dup-cancel').addEventListener('click', () => {
+    state.duplicate = null;
+    render();
+  });
+  document.getElementById('dup-goto').addEventListener('click', () => {
+    const dupId = state.duplicate.id;
+    state.duplicate = null;
+    state.form = emptyForm();
+    state.selectedId = dupId;
+    state.view = 'detail';
+    render();
+  });
+  document.getElementById('dup-save').addEventListener('click', () => {
+    state.duplicate = null;
+    doSave();
+  });
+}
+
+function renderList() {
+  const filtered = getFiltered();
+  return `
+    <div class="anim-up">
+      <div class="header">
+        <div class="header-top">
+          <div class="header-title-wrap">
+            <h1>部品管理</h1>
+            <div class="meta font-tech"><span class="count">${state.parts.length}</span><span> REGISTERED</span></div>
+            <div class="sync-status">
+              <div class="sync-dot ${state.syncStatus}"></div>
+              <span>${
+                state.syncStatus === 'synced' ? '同期済み' :
+                state.syncStatus === 'connecting' ? '接続中…' :
+                state.syncStatus === 'offline' ? 'オフライン(キャッシュ)' :
+                'エラー'
+              }</span>
+            </div>
+          </div>
+          <button class="menu-btn" id="menu-btn" aria-label="メニュー"><svg width="20" height="20"><use href="#i-menu"/></svg></button>
+        </div>
+        <div class="subtitle font-tech">Spare parts inventory</div>
+        <div class="search-row">
+          <div class="search-wrap">
+            <svg class="icon-search"><use href="#i-search"/></svg>
+            <input id="search" class="search" type="text" placeholder="部品名・型式・場所で検索" value="${esc(state.search)}">
+            ${state.search ? `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>` : ''}
+          </div>
+          <button class="ai-search-btn" id="ai-search-btn" aria-label="AI画像検索" title="AI画像検索"><svg><use href="#i-photo-search"/></svg></button>
+        </div>
+        <input type="file" accept="image/*" id="ai-search-input" style="display:none">
+      </div>
+      <div class="list">
+        ${filtered.length === 0 ? renderEmpty() : filtered.map(p => renderCard(p)).join('')}
+      </div>
+      <button class="fab" id="fab" aria-label="部品を追加"><svg><use href="#i-plus"/></svg></button>
+    </div>
+  `;
+}
+
+function renderCard(p, opts = {}) {
+  const firstPhoto = p.photos && p.photos[0];
+  const photoCount = p.photos ? p.photos.length : 0;
+  return `
+    <div class="card" data-id="${p.id}">
+      <button class="card-thumb card-tap" data-id="${p.id}">
+        ${firstPhoto ? `<img src="${firstPhoto}" alt="${esc(p.name)}">` : `<svg><use href="#i-pkg"/></svg>`}
+        ${photoCount > 1 ? `<div class="photo-badge">+${photoCount - 1}</div>` : ''}
+        ${opts.similarity != null ? `<div class="similarity-badge ${opts.similarity > 0.7 ? 'high' : (opts.similarity < 0.4 ? 'low' : '')}">${Math.round(opts.similarity * 100)}%</div>` : ''}
+      </button>
+      <button class="card-body card-tap" data-id="${p.id}">
+        <div class="card-name ${!p.name ? 'empty' : ''}">${p.name ? esc(p.name) : '(無題)'}</div>
+        <div class="card-model font-tech">${p.model ? esc(p.model) : '—'}</div>
+        ${p.location ? `<div class="card-loc"><svg><use href="#i-pin"/></svg><span>${esc(p.location)}</span></div>` : ''}
+      </button>
+      <div class="card-qty">
+        <button class="qty-btn minus" data-id="${p.id}" data-delta="-1"><svg width="16" height="16"><use href="#i-minus"/></svg></button>
+        <div class="qty-num">${p.quantity || 0}</div>
+        <button class="qty-btn plus" data-id="${p.id}" data-delta="1"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEmpty() {
+  if (state.parts.length > 0 && state.search) {
+    return `<div class="empty"><svg width="40" height="40" style="color:#404040;margin-bottom:12px"><use href="#i-search"/></svg><p>「${esc(state.search)}」に一致する部品はありません</p></div>`;
+  }
+  return `
+    <div class="empty">
+      <div class="empty-icon-wrap"><svg><use href="#i-pkg"/></svg></div>
+      <h2>まだ部品がありません</h2>
+      <p>右下の <span class="accent">+</span> から登録、</p>
+      <p>または ⋮ メニューから一括インポート</p>
+    </div>
+  `;
+}
+
+function renderForm() {
+  const f = state.form;
+  const isEdit = !!f.id;
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="cancel-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="header-title">${isEdit ? '編集' : '新規登録'}</div>
+        <div class="header-actions">
+          <button class="save-btn" id="save-btn"><svg><use href="#i-save"/></svg>保存</button>
+        </div>
+      </div>
+      <div class="form">
+        <div>
+          <div class="field-label">
+            <svg><use href="#i-img"/></svg>写真<span class="photo-count">${(f.photos || []).length} / 5</span>
+          </div>
+          <input type="file" accept="image/*" capture="environment" id="photo-camera-input" style="display:none">
+          <input type="file" accept="image/*" id="photo-library-input" style="display:none">
+
+          ${(f.photos && f.photos.length > 0) ? `
+            <div class="photo-grid" id="photo-drop-zone">
+              ${f.photos.map((src, i) => `
+                <div class="photo-tile">
+                  <img src="${src}" alt="写真${i+1}">
+                  <button class="remove" data-idx="${i}" type="button" aria-label="削除"><svg><use href="#i-x"/></svg></button>
+                </div>
+              `).join('')}
+              ${f.photos.length < 5 ? `
+                <button class="photo-tile add-tile" id="photo-add-tile" type="button">
+                  <div class="add-content">
+                    <svg><use href="#i-plus"/></svg>
+                    <span>追加</span>
+                  </div>
+                </button>
+              ` : ''}
+            </div>
+            <div class="photo-upload-hint" style="text-align:center;margin-top:4px;">
+              <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能</span>
+              <span class="mobile-only">「追加」ボタンで撮影 / 選択</span>
+            </div>
+          ` : `
+            <div class="photo-upload" id="photo-drop-zone">
+              <div class="photo-upload-icon-wrap"><svg><use href="#i-cam"/></svg></div>
+              <div class="photo-upload-title">写真を追加(最大5枚)</div>
+              <div class="photo-upload-buttons">
+                <button class="photo-btn" id="photo-camera-btn" type="button">
+                  <svg><use href="#i-cam"/></svg>撮影
+                </button>
+                <button class="photo-btn" id="photo-library-btn" type="button">
+                  <svg><use href="#i-img"/></svg>選択
+                </button>
+              </div>
+              <div class="photo-upload-hint">
+                <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能</span>
+                <span class="mobile-only">タップして撮影 / 写真ライブラリから選択</span>
+              </div>
+            </div>
+          `}
+        </div>
+        <div><div class="field-label"><svg><use href="#i-pkg"/></svg>部品名</div>
+          <input class="input" id="f-name" type="text" value="${esc(f.name)}" placeholder="例: ベアリング 6205ZZ"></div>
+        <div><div class="field-label"><span class="font-tech" style="font-weight:700;font-size:10px">#</span>型式</div>
+          <input class="input mono" id="f-model" type="text" value="${esc(f.model)}" placeholder="例: NSK-6205ZZ-CM"></div>
+        <div><div class="field-label">個数</div>
+          <div class="qty-input-wrap">
+            <button class="qty-input-btn" id="q-minus"><svg width="16" height="16"><use href="#i-minus"/></svg></button>
+            <input class="qty-input" id="f-qty" type="number" inputmode="numeric" value="${f.quantity}" min="0">
+            <button class="qty-input-btn plus" id="q-plus"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        <div><div class="field-label"><svg><use href="#i-pin"/></svg>設置場所</div>
+          <input class="input" id="f-loc" type="text" value="${esc(f.location)}" placeholder="例: 第2倉庫 棚A-3 (任意)"></div>
+        <div><div class="field-label"><svg><use href="#i-doc"/></svg>メモ</div>
+          <textarea class="textarea" id="f-notes" rows="4" placeholder="メーカー、仕様、用途など (任意)">${esc(f.notes)}</textarea></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDetail() {
+  const p = state.parts.find(x => x.id === state.selectedId);
+  if (!p) { state.view = 'list'; render(); return ''; }
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="back-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="subtitle font-tech" style="margin:0">Detail</div>
+        <div class="header-actions">
+          <button class="icon-btn" id="edit-btn"><svg width="16" height="16"><use href="#i-edit"/></svg></button>
+          <button class="icon-btn danger" id="delete-btn"><svg width="16" height="16"><use href="#i-trash"/></svg></button>
+        </div>
+      </div>
+      <div class="detail">
+        ${(p.photos && p.photos.length > 0) ? `
+          <div class="gallery" id="detail-gallery">
+            <div class="gallery-main">
+              <img src="${p.photos[Math.min(state.galleryIndex, p.photos.length - 1)]}" alt="${esc(p.name)}">
+            </div>
+            ${p.photos.length > 1 ? `
+              <button class="gallery-nav prev" id="gallery-prev" aria-label="前へ"><svg><use href="#i-chev-l"/></svg></button>
+              <button class="gallery-nav next" id="gallery-next" aria-label="次へ"><svg><use href="#i-chev-r"/></svg></button>
+              <div class="gallery-indicator">
+                ${p.photos.map((_, i) => `<div class="gallery-dot ${i === Math.min(state.galleryIndex, p.photos.length - 1) ? 'active' : ''}"></div>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+        ` : `<div class="detail-photo detail-photo-empty"><svg><use href="#i-pkg"/></svg></div>`}
+        <h2 class="${!p.name ? 'empty' : ''}">${p.name ? esc(p.name) : '(無題)'}</h2>
+        <div class="detail-model">${p.model ? esc(p.model) : '—'}</div>
+        <div class="qty-card">
+          <div class="qty-card-label">Quantity</div>
+          <div class="qty-card-row">
+            <button class="qty-circle-btn" data-delta="-1"><svg><use href="#i-minus"/></svg></button>
+            <div class="qty-display">${p.quantity || 0}</div>
+            <button class="qty-circle-btn plus" data-delta="1"><svg><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        ${p.location ? `<div class="info-row"><div class="label"><svg><use href="#i-pin"/></svg>設置場所</div><div class="value">${esc(p.location)}</div></div>` : ''}
+        ${p.notes ? `<div class="info-row"><div class="label"><svg><use href="#i-doc"/></svg>メモ</div><div class="value multi">${esc(p.notes)}</div></div>` : ''}
+        ${p.createdAt ? `<div class="meta-bottom">Registered: ${new Date(p.createdAt).toLocaleDateString('ja-JP')}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderImport() {
+  const imp = state.import;
+  if (!imp) { state.view = 'list'; render(); return ''; }
+  const parts = rowsToParts(imp.rows, imp.mapping);
+  let mergeUpdate = 0, mergeAdd = 0;
+  parts.forEach(p => {
+    let found = null;
+    if (p.model) found = state.parts.find(x => x.model && x.model.toLowerCase() === p.model.toLowerCase());
+    if (!found && p.name) found = state.parts.find(x => !x.model && x.name && x.name.toLowerCase() === p.name.toLowerCase());
+    if (found) mergeUpdate++; else mergeAdd++;
+  });
+  const preview = imp.rows.slice(0, 5);
+  const labels = { name: '部品名', model: '型式', quantity: '個数', location: '設置場所', notes: 'メモ' };
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="back-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="header-title">インポートプレビュー</div>
+      </div>
+      <div class="import-section">
+        <div class="section-label">📁 ${esc(imp.fileName)} (${imp.sourceFmt})</div>
+        <div class="stat-row">
+          <div class="stat-cell"><div class="num accent">${imp.rows.length}</div><div class="label">Detected rows</div></div>
+          <div class="stat-cell"><div class="num">${imp.headers.length}</div><div class="label">Columns</div></div>
+          <div class="stat-cell"><div class="num">${parts.length}</div><div class="label">Valid items</div></div>
+        </div>
+        <div class="section-label">列のマッピング</div>
+        <div style="margin-bottom: 20px;">
+          ${imp.headers.map((h, i) => {
+            const m = imp.mapping[i];
+            return `<div class="mapping-row"><span class="from">${esc(h)}</span><span class="arrow">→</span><span class="to ${m ? '' : 'unmapped'}">${m ? labels[m] : 'スキップ'}</span></div>`;
+          }).join('')}
+        </div>
+        <div class="section-label">プレビュー (先頭${preview.length}行)</div>
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead><tr>${imp.headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${preview.map(r => `<tr>${r.map((c, i) => `<td class="${imp.mapping[i] === 'model' ? 'mono' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="section-label">取り込みモード</div>
+        <div class="mode-options">
+          <button class="mode-option ${imp.mode === 'merge' ? 'selected' : ''}" data-mode="merge">
+            <div class="mode-radio"></div>
+            <div class="mode-text"><div class="title">マージ (推奨)</div><div class="desc">型式で照合し既存を更新 (${mergeUpdate}件) + 新規追加 (${mergeAdd}件)</div></div>
+          </button>
+          <button class="mode-option ${imp.mode === 'add' ? 'selected' : ''}" data-mode="add">
+            <div class="mode-radio"></div>
+            <div class="mode-text"><div class="title">全件新規追加</div><div class="desc">${parts.length}件すべてを新しい部品として登録</div></div>
+          </button>
+          <button class="mode-option ${imp.mode === 'replace' ? 'selected' : ''}" data-mode="replace">
+            <div class="mode-radio"></div>
+            <div class="mode-text"><div class="title">全置換 (注意)</div><div class="desc">現在の${state.parts.length}件を全削除し、ファイルの内容で置換</div></div>
+          </button>
+        </div>
+        <button class="exec-btn" id="exec-btn" ${parts.length === 0 ? 'disabled' : ''}>
+          <svg><use href="#i-check"/></svg>${parts.length}件をインポート
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAiSearch() {
+  const ai = state.ai;
+  if (!ai) { state.view = 'list'; render(); return ''; }
+
+  let body;
+  if (ai.phase === 'analyzing') {
+    body = `
+      <div class="ai-status">
+        <div class="loader"></div>
+        <div class="msg">${ai.query ? 'AI解析中...' : '画像を準備中...'}</div>
+        <div class="sub">初回はAIモデルのダウンロードに数十秒かかります</div>
+      </div>
+    `;
+  } else if (ai.error) {
+    body = `
+      <div class="ai-status">
+        <div style="color:#f87171;font-size:14px;line-height:1.6;white-space:pre-line;">${esc(ai.error)}</div>
+      </div>
+    `;
+  } else if (ai.results && ai.results.length === 0) {
+    body = `
+      <div class="ai-status">
+        <svg width="40" height="40" style="color:#404040;margin-bottom:12px"><use href="#i-search"/></svg>
+        <div class="msg">類似する部品が見つかりませんでした</div>
+        <div class="sub">他の角度から撮影してみてください</div>
+      </div>
+    `;
+  } else {
+    body = `
+      <div class="list" style="padding:0;">
+        ${ai.results.map(r => renderCard(r.part, { similarity: r.similarity })).join('')}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="anim-up">
+      <div class="header-bar">
+        <button class="icon-btn" id="back-btn"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="header-title">AI画像検索</div>
+      </div>
+      <div class="ai-result-section">
+        ${ai.query ? `
+          <div class="ai-query-preview">
+            <div class="ai-query-thumb"><img src="${ai.query}" alt="検索画像"></div>
+            <div class="ai-query-info">
+              <div class="label">検索クエリ</div>
+              <div class="count">${ai.phase === 'done' && !ai.error ? `<span class="num">${ai.results.length}</span> 件の類似部品` : '解析中…'}</div>
+            </div>
+          </div>
+        ` : ''}
+        ${body}
+      </div>
+    </div>
+  `;
+}
+
+function bindAiSearchEvents() {
+  document.getElementById('back-btn').addEventListener('click', () => {
+    state.ai = null;
+    state.view = 'list';
+    render();
+  });
+  // 結果カードのタップで詳細表示
+  document.querySelectorAll('.card-tap').forEach(el => {
+    el.addEventListener('click', () => {
+      state.selectedId = el.dataset.id;
+      state.ai = null;
+      state.galleryIndex = 0;
+      state.view = 'detail';
+      render();
+    });
+  });
+}
+
+function renderMenuSheet() {
+  return `
+    <div class="sheet-overlay" id="sheet-overlay">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">データ入出力</div>
+        <button class="sheet-item" data-action="import">
+          <div class="sheet-item-icon"><svg><use href="#i-upload"/></svg></div>
+          <div class="sheet-item-text"><div class="title">CSV / Excelをインポート</div><div class="sub">既存の在庫表から一括取り込み</div></div>
+        </button>
+        <button class="sheet-item" data-action="export-csv">
+          <div class="sheet-item-icon"><svg><use href="#i-download"/></svg></div>
+          <div class="sheet-item-text"><div class="title">CSVでエクスポート</div><div class="sub">${state.parts.length}件を書き出し (写真除く)</div></div>
+        </button>
+        <button class="sheet-item" data-action="export-excel">
+          <div class="sheet-item-icon"><svg><use href="#i-sheet"/></svg></div>
+          <div class="sheet-item-text"><div class="title">Excelでエクスポート</div><div class="sub">${state.parts.length}件を .xlsx で書き出し</div></div>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderModal() {
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-icon-wrap"><svg><use href="#i-alert"/></svg></div>
+          <div><h3>削除しますか?</h3><p>この操作は取り消せません。</p></div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn cancel" id="modal-cancel">キャンセル</button>
+          <button class="modal-btn confirm" id="modal-confirm">削除する</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindListEvents() {
+  document.getElementById('search').addEventListener('input', (e) => {
+    state.search = e.target.value;
+    const filtered = getFiltered();
+    const list = document.querySelector('.list');
+    list.innerHTML = filtered.length === 0 ? renderEmpty() : filtered.map(p => renderCard(p)).join('');
+    bindCardEvents();
+    const clearBtn = document.getElementById('search-clear');
+    if (state.search && !clearBtn) {
+      document.querySelector('.search-wrap').insertAdjacentHTML('beforeend',
+        `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>`);
+      document.getElementById('search-clear').addEventListener('click', clearSearch);
+    } else if (!state.search && clearBtn) {
+      clearBtn.remove();
+    }
+  });
+  document.getElementById('search-clear')?.addEventListener('click', clearSearch);
+  document.getElementById('fab').addEventListener('click', () => {
+    state.form = emptyForm();
+    state.view = 'form';
+    render();
+  });
+  document.getElementById('menu-btn').addEventListener('click', () => {
+    state.menuOpen = true;
+    render();
+  });
+  // AI画像検索ボタン
+  const aiInput = document.getElementById('ai-search-input');
+  document.getElementById('ai-search-btn').addEventListener('click', () => aiInput.click());
+  aiInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) runAiSearch(file);
+  });
+  bindCardEvents();
+}
+
+function clearSearch() {
+  state.search = '';
+  render();
+}
+
+function bindCardEvents() {
+  document.querySelectorAll('.card-tap').forEach(el => {
+    el.addEventListener('click', () => {
+      state.selectedId = el.dataset.id;
+      state.view = 'detail';
+      render();
+    });
+  });
+  document.querySelectorAll('.qty-btn').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const delta = parseInt(el.dataset.delta, 10);
+      const p = state.parts.find(x => x.id === id);
+      if (!p) return;
+      // 0未満にしないよう、0で減算なら無視
+      if (delta < 0 && (Number(p.quantity) || 0) <= 0) return;
+      // 楽観的UI更新
+      const newQty = Math.max(0, (Number(p.quantity) || 0) + delta);
+      p.quantity = newQty;
+      el.parentElement.querySelector('.qty-num').textContent = newQty;
+      // 原子的増減で同時操作に対応
+      try {
+        await db.collection('parts').doc(id).update({
+          quantity: firebase.firestore.FieldValue.increment(delta),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (err) {
+        flash('個数更新エラー: ' + err.message, 'error');
+      }
+    });
+  });
+}
+
+function bindFormEvents() {
+  const f = state.form;
+  document.getElementById('cancel-btn').addEventListener('click', () => {
+    state.view = f.id ? 'detail' : 'list';
+    state.form = emptyForm();
+    render();
+  });
+  document.getElementById('save-btn').addEventListener('click', saveCurrentForm);
+  document.getElementById('f-name').addEventListener('input', e => f.name = e.target.value);
+  document.getElementById('f-model').addEventListener('input', e => f.model = e.target.value);
+  document.getElementById('f-loc').addEventListener('input', e => f.location = e.target.value);
+  document.getElementById('f-notes').addEventListener('input', e => f.notes = e.target.value);
+  const qtyInput = document.getElementById('f-qty');
+  qtyInput.addEventListener('input', e => f.quantity = Math.max(0, Number(e.target.value) || 0));
+  document.getElementById('q-minus').addEventListener('click', () => {
+    f.quantity = Math.max(0, (Number(f.quantity) || 0) - 1);
+    qtyInput.value = f.quantity;
+  });
+  document.getElementById('q-plus').addEventListener('click', () => {
+    f.quantity = (Number(f.quantity) || 0) + 1;
+    qtyInput.value = f.quantity;
+  });
+
+  // ────── 写真処理 (新UX) ──────
+  const cameraInput = document.getElementById('photo-camera-input');
+  const libraryInput = document.getElementById('photo-library-input');
+
+  async function attachPhoto(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      flash('画像ファイルを選択してください', 'error');
+      return;
+    }
+    if (!Array.isArray(f.photos)) f.photos = [];
+    if (!Array.isArray(f.embeddings)) f.embeddings = [];
+    if (f.photos.length >= 5) {
+      flash('写真は最大5枚までです', 'error');
+      return;
+    }
+    try {
+      const dataUrl = await resizeImage(file);
+      f.photos.push(dataUrl);
+      f.embeddings.push([]);  // 埋め込みは後で非同期計算
+      render();
+      // 埋め込みを非同期で計算(失敗してもUIは止めない)
+      flash('AI解析中...(初回はモデル読み込みのため数十秒かかります)');
+      try {
+        const idx = f.photos.length - 1;
+        const emb = await computeEmbedding(dataUrl);
+        if (f.embeddings && f.embeddings[idx] !== undefined) {
+          f.embeddings[idx] = emb;
+        }
+        flash(`写真を追加しました (${f.photos.length}/5)`, 'success');
+      } catch (e) {
+        // 埋め込み失敗しても写真は使える
+        console.warn('Embedding failed:', e);
+        flash(`写真を追加しました (AI解析はスキップ)`, 'success');
+      }
+    } catch {
+      flash('写真の読み込みに失敗', 'error');
+    }
+  }
+
+  cameraInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) attachPhoto(file);
+  });
+  libraryInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) attachPhoto(file);
+  });
+
+  // 空状態のボタンと「+ 追加」タイル(共に「選択」inputをトリガー)
+  document.getElementById('photo-camera-btn')?.addEventListener('click', () => cameraInput.click());
+  document.getElementById('photo-library-btn')?.addEventListener('click', () => libraryInput.click());
+  document.getElementById('photo-add-tile')?.addEventListener('click', () => libraryInput.click());
+
+  // 各サムネイルの削除ボタン
+  document.querySelectorAll('.photo-tile .remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      if (Array.isArray(f.photos)) f.photos.splice(idx, 1);
+      if (Array.isArray(f.embeddings)) f.embeddings.splice(idx, 1);
+      render();
+    });
+  });
+
+  // ────── ドラッグ&ドロップ ──────
+  const dropZone = document.getElementById('photo-drop-zone');
+  if (dropZone) {
+    let dragCounter = 0;
+    dropZone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        dropZone.classList.remove('drag-over');
+      }
+    });
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files?.[0];
+      if (file) attachPhoto(file);
+    });
+  }
+}
+
+function findDuplicate(f) {
+  // 編集時は自分自身を除外
+  const others = state.parts.filter(p => p.id !== f.id);
+  // 型式で照合(優先・大文字小文字無視)
+  if (f.model && f.model.trim()) {
+    const dup = others.find(p => p.model && p.model.trim().toLowerCase() === f.model.trim().toLowerCase());
+    if (dup) return dup;
+  }
+  // 型式なしの場合は部品名で照合
+  if (f.name && f.name.trim() && !f.model.trim()) {
+    const dup = others.find(p =>
+      !p.model && p.name && p.name.trim().toLowerCase() === f.name.trim().toLowerCase()
+    );
+    if (dup) return dup;
+  }
+  return null;
+}
+
+function saveCurrentForm() {
+  const f = state.form;
+  if (!f.name.trim() && !f.model.trim()) {
+    flash('部品名または型式を入力してください', 'error');
+    return;
+  }
+  // 重複チェック (新規・編集どちらでも実行)
+  const dup = findDuplicate(f);
+  if (dup) {
+    state.duplicate = dup;
+    render();
+    return;
+  }
+  doSave();
+}
+
+async function doSave() {
+  const f = state.form;
+  try {
+    if (f.id) {
+      await db.collection('parts').doc(f.id).update({
+        name: f.name, model: f.model,
+        quantity: Number(f.quantity) || 0,
+        location: f.location, notes: f.notes,
+        photos: f.photos || [],
+        embeddings: f.embeddings || [],
+        photo: firebase.firestore.FieldValue.delete(),  // 旧フィールド掃除
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      flash('更新しました', 'success');
+      state.selectedId = f.id;
+      state.view = 'detail';
+    } else {
+      const ref = await db.collection('parts').add({
+        name: f.name, model: f.model,
+        quantity: Number(f.quantity) || 0,
+        location: f.location, notes: f.notes,
+        photos: f.photos || [],
+        embeddings: f.embeddings || [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      flash('登録しました', 'success');
+      state.view = 'list';
+    }
+    state.form = emptyForm();
+    state.duplicate = null;
+    render();
+  } catch (e) {
+    flash('保存エラー: ' + e.message, 'error');
+  }
+}
+
+function bindDetailEvents() {
+  document.getElementById('back-btn').addEventListener('click', () => {
+    state.view = 'list';
+    state.galleryIndex = 0;
+    render();
+  });
+  document.getElementById('edit-btn').addEventListener('click', () => {
+    const p = state.parts.find(x => x.id === state.selectedId);
+    if (p) {
+      // 配列のディープコピー(後の編集が元データに影響しないように)
+      state.form = {
+        ...p,
+        photos: Array.isArray(p.photos) ? [...p.photos] : [],
+        embeddings: Array.isArray(p.embeddings) ? p.embeddings.map(e => [...e]) : []
+      };
+      state.view = 'form';
+      render();
+    }
+  });
+  document.getElementById('delete-btn').addEventListener('click', () => {
+    state.confirmDel = true;
+    render();
+  });
+  // ギャラリー操作
+  const p = state.parts.find(x => x.id === state.selectedId);
+  const photoLen = p?.photos?.length || 0;
+  document.getElementById('gallery-prev')?.addEventListener('click', () => {
+    state.galleryIndex = (state.galleryIndex - 1 + photoLen) % photoLen;
+    render();
+  });
+  document.getElementById('gallery-next')?.addEventListener('click', () => {
+    state.galleryIndex = (state.galleryIndex + 1) % photoLen;
+    render();
+  });
+  document.querySelectorAll('.qty-circle-btn').forEach(el => {
+    el.addEventListener('click', async () => {
+      const delta = parseInt(el.dataset.delta, 10);
+      const p = state.parts.find(x => x.id === state.selectedId);
+      if (!p) return;
+      if (delta < 0 && (Number(p.quantity) || 0) <= 0) return;
+      const newQty = Math.max(0, (Number(p.quantity) || 0) + delta);
+      p.quantity = newQty;
+      document.querySelector('.qty-display').textContent = newQty;
+      try {
+        await db.collection('parts').doc(state.selectedId).update({
+          quantity: firebase.firestore.FieldValue.increment(delta),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (err) {
+        flash('個数更新エラー: ' + err.message, 'error');
+      }
+    });
+  });
+}
+
+function bindImportEvents() {
+  document.getElementById('back-btn').addEventListener('click', () => {
+    state.import = null;
+    state.view = 'list';
+    render();
+  });
+  document.querySelectorAll('.mode-option').forEach(el => {
+    el.addEventListener('click', () => {
+      state.import.mode = el.dataset.mode;
+      if (state.import.mode === 'replace') {
+        if (!confirm('現在のデータをすべて削除して、ファイルの内容に置き換えます。本当によろしいですか?')) {
+          state.import.mode = 'merge';
+        }
+      }
+      render();
+    });
+  });
+  document.getElementById('exec-btn').addEventListener('click', executeImport);
+}
+
+function bindMenuEvents() {
+  document.getElementById('sheet-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'sheet-overlay') {
+      state.menuOpen = false;
+      render();
+    }
+  });
+  document.querySelectorAll('.sheet-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.dataset.action;
+      state.menuOpen = false;
+      render();
+      if (action === 'import') document.getElementById('import-file-input').click();
+      else if (action === 'export-csv') exportCSV();
+      else if (action === 'export-excel') exportExcel();
+    });
+  });
+}
+
+function bindModalEvents() {
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    state.confirmDel = false;
+    render();
+  });
+  document.getElementById('modal-confirm').addEventListener('click', async () => {
+    const id = state.selectedId;
+    try {
+      await db.collection('parts').doc(id).delete();
+      state.confirmDel = false;
+      state.selectedId = null;
+      state.view = 'list';
+      flash('削除しました', 'success');
+      render();
+    } catch (e) {
+      flash('削除エラー: ' + e.message, 'error');
+    }
+  });
+}
+
+document.getElementById('import-file-input').addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (file) handleImportFile(file);
+});
+
+// ────── クリップボードペースト対応(フォーム画面のみ) ──────
+document.addEventListener('paste', async (e) => {
+  // フォーム画面 か AI画像検索開始画面 でのみ動作
+  if (state.view !== 'form') return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        e.preventDefault();
+        const f = state.form;
+        if (!Array.isArray(f.photos)) f.photos = [];
+        if (!Array.isArray(f.embeddings)) f.embeddings = [];
+        if (f.photos.length >= 5) {
+          flash('写真は最大5枚までです', 'error');
+          return;
+        }
+        try {
+          const dataUrl = await resizeImage(file);
+          f.photos.push(dataUrl);
+          f.embeddings.push([]);
+          render();
+          flash('クリップボードから写真を追加しました', 'success');
+          // 埋め込み非同期計算
+          try {
+            const idx = f.photos.length - 1;
+            const emb = await computeEmbedding(dataUrl);
+            if (f.embeddings[idx] !== undefined) f.embeddings[idx] = emb;
+          } catch (err) {
+            console.warn('Embedding failed:', err);
+          }
+        } catch {
+          flash('写真の読み込みに失敗', 'error');
+        }
+      }
+      break;
+    }
+  }
+});
+
+// Service Workerはfile://では動かないので、HTTP/HTTPS時のみ登録
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {
+      // Service Workerファイルが見つからない場合は無視(単一ファイル運用時など)
+    });
+  });
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('install-dismissed')) {
+    document.getElementById('install-banner').classList.remove('hidden');
+  }
+});
+document.getElementById('install-btn')?.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.add('hidden');
+  }
+});
+document.getElementById('install-close')?.addEventListener('click', () => {
+  localStorage.setItem('install-dismissed', '1');
+  document.getElementById('install-banner').classList.add('hidden');
+});
+
+function checkIOSInstallHint() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone && !localStorage.getItem('install-dismissed')) {
+    document.getElementById('install-banner').classList.remove('hidden');
+    document.getElementById('install-btn').textContent = '方法';
+    document.getElementById('install-btn').addEventListener('click', () => {
+      alert('Safariの共有ボタン (□↑) を押し、「ホーム画面に追加」を選んでください。');
+    });
+  }
+}
+
+render();              // 初期ローディング画面表示
+initFirebase();        // Firebase接続&リアルタイム同期開始
+checkIOSInstallHint();
+</script>
+</body>
+</html>
