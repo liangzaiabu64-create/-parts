@@ -374,6 +374,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <script>
 'use strict';
@@ -383,12 +384,12 @@
 // (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
 // ═══════════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
-  authDomain: "parts-1-40d96.firebaseapp.com",
-  projectId: "parts-1-40d96",
-  storageBucket: "parts-1-40d96.firebasestorage.app",
-  messagingSenderId: "695101125652",
-  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 // ═══════════════════════════════════════════════════════════════════
 
@@ -407,13 +408,20 @@ let state = {
   duplicate: null,
   syncStatus: 'connecting',
   initialized: false,
-  galleryIndex: 0,        // 詳細画面の写真ギャラリー現在位置
-  ai: null,               // AI画像検索の状態 { phase: 'loading'|'analyzing'|'done', query, results, error }
+  galleryIndex: 0,
+  ai: null,
+  displayLimit: 100,      // 一覧の初期表示件数(性能対策、「もっと見る」で増加)
+  editConflict: null,     // 同時編集競合モーダル: { partId: string } or null
+  _saving: false,         // 二重保存防止
+  _formDirty: false,      // 未保存変更フラグ(キャンセル時の確認用)
+  _editStartedAt: 0,      // 編集開始時のサーバー更新時刻(競合検出用)
+  _backfillingId: null,   // 埋め込み再計算中の部品ID
 };
 
 // Firebase接続オブジェクト(後で初期化)
 let db = null;
 let auth = null;
+let storage = null;
 let unsubscribe = null;
 
 function emptyForm() {
@@ -436,12 +444,25 @@ async function initFirebase() {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
     auth = firebase.auth();
+    try { storage = firebase.storage(); } catch { storage = null; }
 
     // オフライン対応 (失敗しても無視 - 複数タブ等で発生する想定)
     try { await db.enablePersistence({ synchronizeTabs: true }); } catch {}
 
     // 匿名サインイン
-    await auth.signInAnonymously();
+    try {
+      await auth.signInAnonymously();
+    } catch (authErr) {
+      // よくある失敗をユーザー向けに翻訳
+      if (authErr.code === 'auth/admin-restricted-operation' ||
+          authErr.code === 'auth/operation-not-allowed') {
+        throw new Error('Firebase Console で「Authentication → Sign-in method → Anonymous(匿名)」を有効にしてください');
+      }
+      if (authErr.code === 'auth/network-request-failed') {
+        throw new Error('ネットワーク接続を確認してください');
+      }
+      throw new Error('認証失敗: ' + (authErr.code || authErr.message));
+    }
 
     // リアルタイム購読開始
     startSync();
@@ -453,7 +474,14 @@ async function initFirebase() {
   } catch (e) {
     state.syncStatus = 'error';
     state.initialized = true;
-    flash('Firebase接続エラー: ' + e.message, 'error');
+    // エラー種別を判定して具体的なガイダンスを出す
+    let msg = e.message || '不明なエラー';
+    if (/invalid-api-key|invalid api key/i.test(msg)) {
+      msg = 'firebaseConfig の apiKey が不正です。index.html の設定を確認してください';
+    } else if (/project.*not.*found|invalid.*project/i.test(msg)) {
+      msg = 'firebaseConfig の projectId が見つかりません。設定を確認してください';
+    }
+    flash('接続エラー: ' + msg, 'error');
     render();
   }
 }
@@ -469,19 +497,7 @@ function startSync() {
           // 旧形式 photo:string → photos:[string] へマイグレーション(読み取り時)
           let photos = Array.isArray(d.photos) ? d.photos.filter(Boolean) : [];
           if (photos.length === 0 && d.photo) photos = [d.photo];
-          // Firestoreは入れ子配列を許さないため、マップ {0:[...], 1:[...]} で保存している
-          // 読み出し時は写真の枚数分だけ配列に展開する
-          let embeddings = [];
-          if (d.embeddings) {
-            if (Array.isArray(d.embeddings)) {
-              embeddings = d.embeddings;  // 旧データ(空配列)互換
-            } else if (typeof d.embeddings === 'object') {
-              for (let i = 0; i < photos.length; i++) {
-                const v = d.embeddings[String(i)];
-                embeddings.push(Array.isArray(v) ? v : []);
-              }
-            }
-          }
+          const embeddings = mapToEmbs(d.embeddings, photos.length);
           return {
             id: doc.id,
             name: d.name || '',
@@ -492,6 +508,8 @@ function startSync() {
             photos: photos,
             embeddings: embeddings,
             createdAt: d.createdAt?.toDate?.()?.toISOString() || null,
+            // サーバー時刻ベース。編集競合検出に使用(クライアント時計に依存しない)
+            updatedAtMs: d.updatedAt?.toMillis?.() || d.createdAt?.toMillis?.() || 0,
           };
         });
         state.syncStatus = snapshot.metadata.fromCache ? 'offline' : 'synced';
@@ -552,6 +570,191 @@ async function checkMigration() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// データ処理ヘルパー (Firestore制約対応)
+// ═══════════════════════════════════════════════════════════════════
+
+// Firestoreは入れ子配列を許さないため、embeddingsをマップに変換
+function embsToMap(arr) {
+  if (!Array.isArray(arr)) return {};
+  const m = {};
+  arr.forEach((emb, i) => {
+    if (Array.isArray(emb) && emb.length > 0) m[String(i)] = emb;
+  });
+  return m;
+}
+
+// マップ → 配列(写真の枚数分)
+function mapToEmbs(obj, photoCount) {
+  if (Array.isArray(obj)) return obj;
+  const arr = [];
+  if (!obj || typeof obj !== 'object') {
+    for (let i = 0; i < photoCount; i++) arr.push([]);
+    return arr;
+  }
+  for (let i = 0; i < photoCount; i++) {
+    const v = obj[String(i)];
+    arr.push(Array.isArray(v) ? v : []);
+  }
+  return arr;
+}
+
+// ドキュメント全体のサイズを推定 (Firestore 1MB制限の事前チェック用)
+function estimateDocSize(payload) {
+  try { return JSON.stringify(payload).length; }
+  catch { return 0; }
+}
+
+const FIRESTORE_DOC_SOFT_LIMIT = 850 * 1024;
+
+// ═══════════════════════════════════════════════════════════════════
+// HEIC形式対応 (iPhone標準形式) - heic2anyライブラリで動的変換
+// ═══════════════════════════════════════════════════════════════════
+const HEIC2ANY_URL = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+let heic2anyPromise = null;
+
+function loadHeic2any() {
+  if (window.heic2any) return Promise.resolve();
+  if (heic2anyPromise) return heic2anyPromise;
+  heic2anyPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = HEIC2ANY_URL;
+    s.onload = resolve;
+    s.onerror = () => { heic2anyPromise = null; reject(new Error('HEIC変換ライブラリの読み込み失敗')); };
+    document.head.appendChild(s);
+  });
+  return heic2anyPromise;
+}
+
+function isHeicFile(file) {
+  if (!file) return false;
+  const t = (file.type || '').toLowerCase();
+  if (t === 'image/heic' || t === 'image/heif') return true;
+  const name = (file.name || '').toLowerCase();
+  return /\.(heic|heif)$/.test(name);
+}
+
+async function convertHeicToJpeg(file) {
+  await loadHeic2any();
+  const blob = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+  // heic2anyは配列を返す場合もある
+  const out = Array.isArray(blob) ? blob[0] : blob;
+  return new File([out], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Firebase Storage 写真アップロード (1MB制限の解消)
+// 設定不要: configにstorageBucketがあれば自動利用、なければbase64フォールバック
+// ═══════════════════════════════════════════════════════════════════
+
+// dataUrlがBase64データか、Storage URLかを判定
+function isDataUrl(s) {
+  return typeof s === 'string' && s.startsWith('data:');
+}
+
+// Base64データをBlobに変換
+function dataUrlToBlob(dataUrl) {
+  const [meta, b64] = dataUrl.split(',');
+  const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// 写真をStorageにアップロード → ダウンロードURLを返す
+// 失敗時は元のdataUrlをそのまま返す (base64フォールバック)
+async function uploadPhotoToStorage(dataUrl, partIdHint = '') {
+  if (!storage) return dataUrl;
+  if (!isDataUrl(dataUrl)) return dataUrl;  // 既にURLなら何もしない
+  try {
+    const blob = dataUrlToBlob(dataUrl);
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const uid = auth.currentUser?.uid || 'anon';
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `parts-photos/${uid}/${fileName}`;
+    const ref = storage.ref(path);
+    await ref.put(blob, { contentType: blob.type });
+    return await ref.getDownloadURL();
+  } catch (e) {
+    console.warn('Storage upload failed, falling back to base64:', e);
+    return dataUrl;
+  }
+}
+
+// 写真の一括アップロード (新規追加 or 既存の置き換え)
+async function uploadPhotos(photos) {
+  if (!storage) return photos;
+  const out = [];
+  for (const p of photos) {
+    if (isDataUrl(p)) {
+      out.push(await uploadPhotoToStorage(p));
+    } else {
+      out.push(p);  // 既にURL
+    }
+  }
+  return out;
+}
+
+// 削除時にStorageからも消す (ベストエフォート - 失敗しても処理続行)
+async function deletePhotoFromStorage(url) {
+  if (!storage || !url || isDataUrl(url)) return;
+  try {
+    // Firebase Storage URLからパスを抽出
+    const ref = storage.refFromURL(url);
+    await ref.delete();
+  } catch (e) {
+    console.warn('Storage delete skipped:', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ブラウザの戻る・進むボタン対応 (history.pushState ベース)
+// ═══════════════════════════════════════════════════════════════════
+let _navIgnore = false;  // popstateからの呼び出しを区別
+
+function navigateTo(view, opts = {}) {
+  state.view = view;
+  if (opts.selectedId !== undefined) state.selectedId = opts.selectedId;
+  if (opts.galleryIndex !== undefined) state.galleryIndex = opts.galleryIndex;
+  if (!_navIgnore) {
+    try {
+      history.pushState(
+        { view, selectedId: state.selectedId, galleryIndex: state.galleryIndex },
+        '',
+        '#' + view
+      );
+    } catch {}
+  }
+  render();
+}
+
+window.addEventListener('popstate', (e) => {
+  // モーダルが開いていれば、戻るボタンでまずモーダルを閉じる
+  if (state.confirmDel || state.duplicate || state.menuOpen || state.editConflict) {
+    state.confirmDel = false;
+    state.duplicate = null;
+    state.menuOpen = false;
+    state.editConflict = null;
+    render();
+    return;
+  }
+  _navIgnore = true;
+  if (e.state && e.state.view) {
+    state.view = e.state.view;
+    state.selectedId = e.state.selectedId || null;
+    state.galleryIndex = e.state.galleryIndex || 0;
+  } else {
+    state.view = 'list';
+  }
+  // フォームから戻る場合は変更を破棄(編集状態も完全にクリア)
+  state.form = emptyForm();
+  state._formDirty = false;
+  state._editStartedAt = 0;
+  render();
+  _navIgnore = false;
+});
+
 // 写真は1MB制限のため少し強めに圧縮 (720px / quality 0.65)
 function resizeImage(file, maxWidth = 720, quality = 0.65) {
   return new Promise((resolve, reject) => {
@@ -608,10 +811,27 @@ async function loadMobileNet() {
 }
 
 // 画像のdata URLから1280次元の特徴ベクトルを計算
-async function computeEmbedding(dataUrl) {
+// Storage URLが渡された場合は、CORS問題を避けるため fetch経由でdataUrlに変換してから処理
+async function computeEmbedding(srcUrl) {
   const model = await loadMobileNet();
+  // Storage URLの場合: fetchでblob取得→dataUrlに変換(CORS taintedを回避)
+  let dataUrl = srcUrl;
+  if (!isDataUrl(srcUrl)) {
+    try {
+      const resp = await fetch(srcUrl);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const blob = await resp.blob();
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('blob読込失敗'));
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      throw new Error('画像取得失敗: ' + e.message);
+    }
+  }
   const img = new Image();
-  img.crossOrigin = 'anonymous';
   await new Promise((resolve, reject) => {
     img.onload = resolve;
     img.onerror = () => reject(new Error('画像の読み込み失敗'));
@@ -658,13 +878,26 @@ function rankBySimilarity(queryEmb, parts) {
 
 // AI検索の起動: ファイル選択 → 解析 → 結果表示
 async function runAiSearch(file) {
-  if (!file || !file.type.startsWith('image/')) {
+  if (!file) {
+    flash('画像ファイルを選択してください', 'error');
+    return;
+  }
+  // HEIC形式を検出して変換 (iPhone)
+  if (isHeicFile(file)) {
+    flash('HEIC画像を変換中…');
+    try {
+      file = await convertHeicToJpeg(file);
+    } catch (e) {
+      flash('HEIC変換失敗: ' + e.message, 'error');
+      return;
+    }
+  }
+  if (!file.type.startsWith('image/')) {
     flash('画像ファイルを選択してください', 'error');
     return;
   }
   state.ai = { phase: 'analyzing', query: '', results: [], error: null };
-  state.view = 'ai-search';
-  render();
+  navigateTo('ai-search');
   try {
     const dataUrl = await resizeImage(file);
     state.ai.query = dataUrl;
@@ -884,9 +1117,8 @@ async function handleImportFile(file) {
     return;
   }
   state.import = { fileName, sourceFmt, headers, rows: dataRows, mapping, mode: 'merge' };
-  state.view = 'import';
   state.menuOpen = false;
-  render();
+  navigateTo('import');
 }
 
 function rowsToParts(rows, mapping) {
@@ -912,8 +1144,9 @@ async function executeImport() {
   if (!imp) return;
   const newParts = rowsToParts(imp.rows, imp.mapping);
   let added = 0, updated = 0, replaced = 0;
+  const total = newParts.length;
 
-  flash('インポート処理中...');
+  flash(`インポート開始… (${total}件)`);
 
   try {
     if (imp.mode === 'add') {
@@ -931,9 +1164,11 @@ async function executeImport() {
           added++;
         });
         await batch.commit();
+        if (total > 100) flash(`登録中… ${Math.min(i + 400, total)} / ${total}`);
       }
     } else if (imp.mode === 'replace') {
       // 既存を全削除してから追加
+      flash('既存データを削除中…');
       const all = await db.collection('parts').get();
       for (let i = 0; i < all.docs.length; i += 400) {
         const batch = db.batch();
@@ -952,10 +1187,12 @@ async function executeImport() {
           });
         });
         await batch.commit();
+        if (total > 100) flash(`登録中… ${Math.min(i + 400, total)} / ${total}`);
       }
       replaced = newParts.length;
     } else {
-      // マージ: 既存照合
+      // マージ: 既存照合 (1件ずつ - Firestore round-tripが必要)
+      let processed = 0;
       for (const p of newParts) {
         let found = null;
         if (p.model) found = state.parts.find(x => x.model && x.model.toLowerCase() === p.model.toLowerCase());
@@ -977,17 +1214,20 @@ async function executeImport() {
           });
           added++;
         }
+        processed++;
+        if (total > 50 && processed % 25 === 0) {
+          flash(`照合・登録中… ${processed} / ${total}`);
+        }
       }
     }
 
     state.import = null;
-    state.view = 'list';
     let msg;
     if (imp.mode === 'replace') msg = `${replaced}件で全置換しました`;
     else if (imp.mode === 'add') msg = `${added}件を追加しました`;
     else msg = `${updated}件更新 / ${added}件追加`;
     flash(msg, 'success');
-    render();
+    navigateTo('list');
   } catch (e) {
     flash('インポートエラー: ' + e.message, 'error');
   }
@@ -1018,6 +1258,10 @@ function render() {
   if (state.duplicate) {
     document.body.insertAdjacentHTML('beforeend', renderDuplicateModal());
     bindDuplicateModalEvents();
+  }
+  if (state.editConflict) {
+    document.body.insertAdjacentHTML('beforeend', renderConflictModal());
+    bindConflictModalEvents();
   }
   if (state.menuOpen) {
     document.body.insertAdjacentHTML('beforeend', renderMenuSheet());
@@ -1106,9 +1350,8 @@ function bindDuplicateModalEvents() {
     const dupId = state.duplicate.id;
     state.duplicate = null;
     state.form = emptyForm();
-    state.selectedId = dupId;
-    state.view = 'detail';
-    render();
+    state._formDirty = false;
+    navigateTo('detail', { selectedId: dupId, galleryIndex: 0 });
   });
   document.getElementById('dup-save').addEventListener('click', () => {
     state.duplicate = null;
@@ -1148,8 +1391,24 @@ function renderList() {
         </div>
         <input type="file" accept="image/*" id="ai-search-input" style="display:none">
       </div>
-      <div class="list">
-        ${filtered.length === 0 ? renderEmpty() : filtered.map(p => renderCard(p)).join('')}
+      <div class="list" id="part-list">
+        ${(() => {
+          if (filtered.length === 0) return renderEmpty();
+          const limit = state.displayLimit || 100;
+          const visible = filtered.slice(0, limit);
+          const hasMore = filtered.length > limit;
+          return visible.map(p => renderCard(p)).join('') + (hasMore ? `
+            <div style="padding: 16px 0 24px; text-align: center;">
+              <button class="photo-btn" id="load-more-btn" style="background: #171717; border: 1px solid #262626;">
+                もっと見る (${visible.length} / ${filtered.length} 件表示中)
+              </button>
+            </div>
+          ` : (filtered.length > 30 ? `
+            <div style="padding: 16px 0 24px; text-align: center; font-size: 11px; color: #525252; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+              ${filtered.length} 件すべて表示
+            </div>
+          ` : ''));
+        })()}
       </div>
       <button class="fab" id="fab" aria-label="部品を追加"><svg><use href="#i-plus"/></svg></button>
     </div>
@@ -1162,7 +1421,7 @@ function renderCard(p, opts = {}) {
   return `
     <div class="card" data-id="${p.id}">
       <button class="card-thumb card-tap" data-id="${p.id}">
-        ${firstPhoto ? `<img src="${firstPhoto}" alt="${esc(p.name)}">` : `<svg><use href="#i-pkg"/></svg>`}
+        ${firstPhoto ? `<img src="${firstPhoto}" alt="${esc(p.name)}" loading="lazy" decoding="async">` : `<svg><use href="#i-pkg"/></svg>`}
         ${photoCount > 1 ? `<div class="photo-badge">+${photoCount - 1}</div>` : ''}
         ${opts.similarity != null ? `<div class="similarity-badge ${opts.similarity > 0.7 ? 'high' : (opts.similarity < 0.4 ? 'low' : '')}">${Math.round(opts.similarity * 100)}%</div>` : ''}
       </button>
@@ -1212,7 +1471,7 @@ function renderForm() {
             <svg><use href="#i-img"/></svg>写真<span class="photo-count">${(f.photos || []).length} / 5</span>
           </div>
           <input type="file" accept="image/*" capture="environment" id="photo-camera-input" style="display:none">
-          <input type="file" accept="image/*" id="photo-library-input" style="display:none">
+          <input type="file" accept="image/*" multiple id="photo-library-input" style="display:none">
 
           ${(f.photos && f.photos.length > 0) ? `
             <div class="photo-grid" id="photo-drop-zone">
@@ -1223,17 +1482,24 @@ function renderForm() {
                 </div>
               `).join('')}
               ${f.photos.length < 5 ? `
-                <button class="photo-tile add-tile" id="photo-add-tile" type="button">
+                <button class="photo-tile add-tile" id="photo-add-camera-tile" type="button" title="撮影">
                   <div class="add-content">
-                    <svg><use href="#i-plus"/></svg>
-                    <span>追加</span>
+                    <svg><use href="#i-cam"/></svg>
+                    <span>撮影</span>
                   </div>
                 </button>
+                ${f.photos.length < 4 ? `
+                <button class="photo-tile add-tile" id="photo-add-tile" type="button" title="ライブラリから選択">
+                  <div class="add-content">
+                    <svg><use href="#i-img"/></svg>
+                    <span>選択</span>
+                  </div>
+                </button>` : ''}
               ` : ''}
             </div>
             <div class="photo-upload-hint" style="text-align:center;margin-top:4px;">
-              <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能</span>
-              <span class="mobile-only">「追加」ボタンで撮影 / 選択</span>
+              <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能(複数枚OK)</span>
+              <span class="mobile-only">「撮影」または「選択」から追加(複数選択可)</span>
             </div>
           ` : `
             <div class="photo-upload" id="photo-drop-zone">
@@ -1248,8 +1514,8 @@ function renderForm() {
                 </button>
               </div>
               <div class="photo-upload-hint">
-                <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能</span>
-                <span class="mobile-only">タップして撮影 / 写真ライブラリから選択</span>
+                <span class="desktop-only">ドラッグ&ドロップ または Ctrl+V でペースト可能(複数枚OK)</span>
+                <span class="mobile-only">タップして撮影 / 写真ライブラリから複数選択可</span>
               </div>
             </div>
           `}
@@ -1445,17 +1711,13 @@ function renderAiSearch() {
 function bindAiSearchEvents() {
   document.getElementById('back-btn').addEventListener('click', () => {
     state.ai = null;
-    state.view = 'list';
-    render();
+    navigateTo('list');
   });
   // 結果カードのタップで詳細表示
   document.querySelectorAll('.card-tap').forEach(el => {
     el.addEventListener('click', () => {
-      state.selectedId = el.dataset.id;
       state.ai = null;
-      state.galleryIndex = 0;
-      state.view = 'detail';
-      render();
+      navigateTo('detail', { selectedId: el.dataset.id, galleryIndex: 0 });
     });
   });
 }
@@ -1500,27 +1762,102 @@ function renderModal() {
   `;
 }
 
+function renderConflictModal() {
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div>
+            <h3>他のユーザーが先に更新しました</h3>
+            <p>あなたが編集している間に、別の人がこの部品を変更したようです。どうしますか?</p>
+          </div>
+        </div>
+        <div class="modal-actions stack">
+          <button class="modal-btn secondary" id="conflict-reload">最新を取り込んで確認する</button>
+          <button class="modal-btn primary" id="conflict-overwrite">自分の編集で上書きする</button>
+          <button class="modal-btn cancel" id="conflict-cancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindConflictModalEvents() {
+  document.getElementById('conflict-cancel').addEventListener('click', () => {
+    state.editConflict = null;
+    render();
+  });
+  document.getElementById('conflict-reload').addEventListener('click', () => {
+    // 最新を取り込んで詳細表示へ (ユーザーの編集は破棄)
+    state.editConflict = null;
+    state.form = emptyForm();
+    state._formDirty = false;
+    state._editStartedAt = 0;
+    navigateTo('detail');
+  });
+  document.getElementById('conflict-overwrite').addEventListener('click', () => {
+    state.editConflict = null;
+    render();
+    doSave(true);  // 強制上書きフラグ
+  });
+}
+
 function bindListEvents() {
-  document.getElementById('search').addEventListener('input', (e) => {
-    state.search = e.target.value;
+  let searchDebounceTimer = null;
+  const renderListSection = () => {
     const filtered = getFiltered();
     const list = document.querySelector('.list');
-    list.innerHTML = filtered.length === 0 ? renderEmpty() : filtered.map(p => renderCard(p)).join('');
-    bindCardEvents();
-    const clearBtn = document.getElementById('search-clear');
-    if (state.search && !clearBtn) {
-      document.querySelector('.search-wrap').insertAdjacentHTML('beforeend',
-        `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>`);
-      document.getElementById('search-clear').addEventListener('click', clearSearch);
-    } else if (!state.search && clearBtn) {
-      clearBtn.remove();
+    if (!list) return;
+    if (filtered.length === 0) {
+      list.innerHTML = renderEmpty();
+      return;
     }
+    const limit = state.displayLimit || 100;
+    const visible = filtered.slice(0, limit);
+    const hasMore = filtered.length > limit;
+    list.innerHTML = visible.map(p => renderCard(p)).join('') + (hasMore ? `
+      <div style="padding: 16px 0 24px; text-align: center;">
+        <button class="photo-btn" id="load-more-btn" style="background: #171717; border: 1px solid #262626;">
+          もっと見る (${visible.length} / ${filtered.length} 件表示中)
+        </button>
+      </div>
+    ` : (filtered.length > 30 ? `
+      <div style="padding: 16px 0 24px; text-align: center; font-size: 11px; color: #525252; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+        ${filtered.length} 件すべて表示
+      </div>
+    ` : ''));
+    bindCardEvents();
+    bindLoadMore();
+  };
+  const bindLoadMore = () => {
+    document.getElementById('load-more-btn')?.addEventListener('click', () => {
+      state.displayLimit = (state.displayLimit || 100) + 100;
+      renderListSection();
+    });
+  };
+  document.getElementById('search').addEventListener('input', (e) => {
+    state.search = e.target.value;
+    state.displayLimit = 100;  // 検索時はリセット
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      renderListSection();
+      const clearBtn = document.getElementById('search-clear');
+      if (state.search && !clearBtn) {
+        document.querySelector('.search-wrap').insertAdjacentHTML('beforeend',
+          `<button class="search-clear" id="search-clear"><svg width="16" height="16"><use href="#i-x"/></svg></button>`);
+        document.getElementById('search-clear').addEventListener('click', clearSearch);
+      } else if (!state.search && clearBtn) {
+        clearBtn.remove();
+      }
+    }, 150);
   });
   document.getElementById('search-clear')?.addEventListener('click', clearSearch);
   document.getElementById('fab').addEventListener('click', () => {
     state.form = emptyForm();
-    state.view = 'form';
-    render();
+    state._formDirty = false;
+    state._editStartedAt = 0;
+    navigateTo('form');
   });
   document.getElementById('menu-btn').addEventListener('click', () => {
     state.menuOpen = true;
@@ -1535,6 +1872,11 @@ function bindListEvents() {
     if (file) runAiSearch(file);
   });
   bindCardEvents();
+  // 「もっと見る」ボタン (初期表示)
+  document.getElementById('load-more-btn')?.addEventListener('click', () => {
+    state.displayLimit = (state.displayLimit || 100) + 100;
+    renderListSection();
+  });
 }
 
 function clearSearch() {
@@ -1545,9 +1887,7 @@ function clearSearch() {
 function bindCardEvents() {
   document.querySelectorAll('.card-tap').forEach(el => {
     el.addEventListener('click', () => {
-      state.selectedId = el.dataset.id;
-      state.view = 'detail';
-      render();
+      navigateTo('detail', { selectedId: el.dataset.id, galleryIndex: 0 });
     });
   });
   document.querySelectorAll('.qty-btn').forEach(el => {
@@ -1579,33 +1919,63 @@ function bindCardEvents() {
 function bindFormEvents() {
   const f = state.form;
   document.getElementById('cancel-btn').addEventListener('click', () => {
-    state.view = f.id ? 'detail' : 'list';
+    if (state._formDirty) {
+      if (!confirm('未保存の変更があります。破棄しますか?')) return;
+    }
+    const target = f.id ? 'detail' : 'list';
     state.form = emptyForm();
-    render();
+    state._formDirty = false;
+    state._editStartedAt = 0;
+    navigateTo(target);
   });
   document.getElementById('save-btn').addEventListener('click', saveCurrentForm);
-  document.getElementById('f-name').addEventListener('input', e => f.name = e.target.value);
-  document.getElementById('f-model').addEventListener('input', e => f.model = e.target.value);
-  document.getElementById('f-loc').addEventListener('input', e => f.location = e.target.value);
-  document.getElementById('f-notes').addEventListener('input', e => f.notes = e.target.value);
+  // 入力変更を全て dirty フラグに反映
+  const markDirty = () => { state._formDirty = true; };
+  document.getElementById('f-name').addEventListener('input', e => { f.name = e.target.value; markDirty(); });
+  document.getElementById('f-model').addEventListener('input', e => { f.model = e.target.value; markDirty(); });
+  document.getElementById('f-loc').addEventListener('input', e => { f.location = e.target.value; markDirty(); });
+  document.getElementById('f-notes').addEventListener('input', e => { f.notes = e.target.value; markDirty(); });
   const qtyInput = document.getElementById('f-qty');
-  qtyInput.addEventListener('input', e => f.quantity = Math.max(0, Number(e.target.value) || 0));
+  qtyInput.addEventListener('input', e => {
+    // 整数のみ、0以上にクランプ
+    const n = parseInt(e.target.value, 10);
+    f.quantity = isNaN(n) ? 0 : Math.max(0, n);
+    // 不正な入力は表示も修正
+    if (String(f.quantity) !== e.target.value && e.target.value !== '') {
+      e.target.value = String(f.quantity);
+    }
+    markDirty();
+  });
   document.getElementById('q-minus').addEventListener('click', () => {
     f.quantity = Math.max(0, (Number(f.quantity) || 0) - 1);
     qtyInput.value = f.quantity;
+    markDirty();
   });
   document.getElementById('q-plus').addEventListener('click', () => {
     f.quantity = (Number(f.quantity) || 0) + 1;
     qtyInput.value = f.quantity;
+    markDirty();
   });
 
   // ────── 写真処理 (新UX) ──────
   const cameraInput = document.getElementById('photo-camera-input');
   const libraryInput = document.getElementById('photo-library-input');
 
+  // dataUrlで写真を特定して埋め込みを設定 (添付・削除で位置が変わっても正しい場所に書き込む)
   async function attachPhoto(file) {
-    if (!file || !file.type.startsWith('image/')) {
-      flash('画像ファイルを選択してください', 'error');
+    if (!file) return;
+    // HEIC形式(iPhone標準)を検出してJPEGに変換
+    if (isHeicFile(file)) {
+      flash('HEIC画像を変換中…');
+      try {
+        file = await convertHeicToJpeg(file);
+      } catch (e) {
+        flash('HEIC変換に失敗: ' + e.message, 'error');
+        return;
+      }
+    }
+    if (!file.type.startsWith('image/')) {
+      flash('画像ファイルを選択してください (JPEG / PNG / WebP / HEIC)', 'error');
       return;
     }
     if (!Array.isArray(f.photos)) f.photos = [];
@@ -1614,45 +1984,58 @@ function bindFormEvents() {
       flash('写真は最大5枚までです', 'error');
       return;
     }
+    let dataUrl;
     try {
-      const dataUrl = await resizeImage(file);
-      f.photos.push(dataUrl);
-      f.embeddings.push([]);  // 埋め込みは後で非同期計算
-      render();
-      // 埋め込みを非同期で計算(失敗してもUIは止めない)
-      flash('AI解析中...(初回はモデル読み込みのため数十秒かかります)');
-      try {
-        const idx = f.photos.length - 1;
-        const emb = await computeEmbedding(dataUrl);
-        if (f.embeddings && f.embeddings[idx] !== undefined) {
-          f.embeddings[idx] = emb;
-        }
-        flash(`写真を追加しました (${f.photos.length}/5)`, 'success');
-      } catch (e) {
-        // 埋め込み失敗しても写真は使える
-        console.warn('Embedding failed:', e);
-        flash(`写真を追加しました (AI解析はスキップ)`, 'success');
-      }
+      dataUrl = await resizeImage(file);
     } catch {
       flash('写真の読み込みに失敗', 'error');
+      return;
+    }
+    f.photos.push(dataUrl);
+    f.embeddings.push([]);
+    state._formDirty = true;
+    render();
+    // 埋め込みを非同期で計算 - 写真をdataUrlで特定し、削除・並び替えに耐える
+    try {
+      const emb = await computeEmbedding(dataUrl);
+      const idx = f.photos.indexOf(dataUrl);
+      if (idx >= 0 && f.embeddings[idx]) {
+        f.embeddings[idx] = emb;
+      }
+    } catch (e) {
+      console.warn('Embedding failed:', e);
+    }
+  }
+
+  // 複数ファイルを順次追加
+  async function attachPhotos(files) {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+    for (const file of arr) {
+      if ((f.photos || []).length >= 5) {
+        flash('写真は最大5枚までです', 'error');
+        break;
+      }
+      await attachPhoto(file);
     }
   }
 
   cameraInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     e.target.value = '';
-    if (file) attachPhoto(file);
+    if (files && files.length > 0) attachPhotos(files);
   });
   libraryInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     e.target.value = '';
-    if (file) attachPhoto(file);
+    if (files && files.length > 0) attachPhotos(files);
   });
 
-  // 空状態のボタンと「+ 追加」タイル(共に「選択」inputをトリガー)
+  // 空状態のボタンと「+ 追加」タイル
   document.getElementById('photo-camera-btn')?.addEventListener('click', () => cameraInput.click());
   document.getElementById('photo-library-btn')?.addEventListener('click', () => libraryInput.click());
   document.getElementById('photo-add-tile')?.addEventListener('click', () => libraryInput.click());
+  document.getElementById('photo-add-camera-tile')?.addEventListener('click', () => cameraInput.click());
 
   // 各サムネイルの削除ボタン
   document.querySelectorAll('.photo-tile .remove').forEach(btn => {
@@ -1660,6 +2043,7 @@ function bindFormEvents() {
       const idx = parseInt(btn.dataset.idx, 10);
       if (Array.isArray(f.photos)) f.photos.splice(idx, 1);
       if (Array.isArray(f.embeddings)) f.embeddings.splice(idx, 1);
+      state._formDirty = true;
       render();
     });
   });
@@ -1689,8 +2073,8 @@ function bindFormEvents() {
       e.preventDefault();
       dragCounter = 0;
       dropZone.classList.remove('drag-over');
-      const file = e.dataTransfer.files?.[0];
-      if (file) attachPhoto(file);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) attachPhotos(files);
     });
   }
 }
@@ -1729,68 +2113,123 @@ function saveCurrentForm() {
   doSave();
 }
 
-async function doSave() {
+async function doSave(forceOverwrite = false) {
   const f = state.form;
-  // 入れ子配列はFirestore非対応のため、embeddingsを {0:[...], 1:[...]} のマップに変換
-  const embsToMap = (arr) => {
-    if (!Array.isArray(arr)) return {};
-    const m = {};
-    arr.forEach((emb, i) => {
-      if (Array.isArray(emb) && emb.length > 0) m[String(i)] = emb;
-    });
-    return m;
-  };
+
+  // 二重保存防止
+  if (state._saving) return;
+  state._saving = true;
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>保存中…'; }
+
   try {
+    // ① 写真をStorageにアップロード (新規base64分のみ - 既存URLはそのまま)
+    if (storage && Array.isArray(f.photos) && f.photos.some(isDataUrl)) {
+      if (saveBtn) saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>写真をアップロード中…';
+      f.photos = await uploadPhotos(f.photos);
+    }
+
+    // ② 入力値のトリム
+    const cleanName = (f.name || '').trim();
+    const cleanModel = (f.model || '').trim();
+    const cleanLoc = (f.location || '').trim();
+    const cleanNotes = (f.notes || '').trim();
+    const cleanQty = Math.max(0, Math.floor(Number(f.quantity) || 0));
+
+    const payload = {
+      name: cleanName,
+      model: cleanModel,
+      quantity: cleanQty,
+      location: cleanLoc,
+      notes: cleanNotes,
+      photos: f.photos || [],
+      embeddings: embsToMap(f.embeddings),
+    };
+
+    // ③ Firestoreサイズチェック (1MB制限の事前検知)
+    const size = estimateDocSize(payload);
+    if (size > FIRESTORE_DOC_SOFT_LIMIT) {
+      throw new Error(`データサイズが大きすぎます (${Math.round(size/1024)}KB)。写真を減らしてください。`);
+    }
+
     if (f.id) {
-      await db.collection('parts').doc(f.id).update({
-        name: f.name, model: f.model,
-        quantity: Number(f.quantity) || 0,
-        location: f.location, notes: f.notes,
-        photos: f.photos || [],
-        embeddings: embsToMap(f.embeddings),
-        photo: firebase.firestore.FieldValue.delete(),  // 旧フィールド掃除
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      // ④ 同時編集の競合検出 (Firestoreトランザクション使用)
+      if (saveBtn) saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>保存中…';
+      // 編集前の写真一覧を保持(削除された写真をStorageから消すため)
+      const oldPart = state.parts.find(x => x.id === f.id);
+      const oldPhotos = (oldPart && Array.isArray(oldPart.photos)) ? [...oldPart.photos] : [];
+      const docRef = db.collection('parts').doc(f.id);
+      const editStartedAt = state._editStartedAt || 0;
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(docRef);
+        if (!snap.exists) {
+          throw new Error('この部品は他のユーザーに削除されました');
+        }
+        const serverData = snap.data();
+        const serverUpdatedMs = serverData.updatedAt?.toMillis?.() || 0;
+        if (!forceOverwrite && serverUpdatedMs > editStartedAt && editStartedAt > 0) {
+          // 競合検出 → ユーザーに判断を仰ぐ
+          throw new Error('CONFLICT');
+        }
+        tx.update(docRef, {
+          ...payload,
+          photo: firebase.firestore.FieldValue.delete(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
       });
+      // 編集で削除された写真をStorageからも消す(ベストエフォート、非同期で実行)
+      const newPhotosSet = new Set(payload.photos);
+      for (const oldUrl of oldPhotos) {
+        if (!newPhotosSet.has(oldUrl)) {
+          deletePhotoFromStorage(oldUrl);  // fire-and-forget
+        }
+      }
       flash('更新しました', 'success');
       state.selectedId = f.id;
-      state.view = 'detail';
+      navigateTo('detail');
     } else {
-      const ref = await db.collection('parts').add({
-        name: f.name, model: f.model,
-        quantity: Number(f.quantity) || 0,
-        location: f.location, notes: f.notes,
-        photos: f.photos || [],
-        embeddings: embsToMap(f.embeddings),
+      await db.collection('parts').add({
+        ...payload,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
       flash('登録しました', 'success');
-      state.view = 'list';
+      navigateTo('list');
     }
     state.form = emptyForm();
     state.duplicate = null;
-    render();
+    state._formDirty = false;
+    state._editStartedAt = 0;
   } catch (e) {
-    flash('保存エラー: ' + e.message, 'error');
+    if (e.message === 'CONFLICT') {
+      // 競合モーダルを表示してユーザーに判断を任せる
+      state.editConflict = { partId: f.id };
+      render();
+    } else {
+      flash('保存エラー: ' + e.message, 'error');
+    }
+  } finally {
+    state._saving = false;
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>保存'; }
   }
 }
 
 function bindDetailEvents() {
   document.getElementById('back-btn').addEventListener('click', () => {
-    state.view = 'list';
     state.galleryIndex = 0;
-    render();
+    navigateTo('list');
   });
   document.getElementById('edit-btn').addEventListener('click', () => {
     const p = state.parts.find(x => x.id === state.selectedId);
     if (p) {
-      // 配列のディープコピー(後の編集が元データに影響しないように)
       state.form = {
         ...p,
         photos: Array.isArray(p.photos) ? [...p.photos] : [],
         embeddings: Array.isArray(p.embeddings) ? p.embeddings.map(e => [...e]) : []
       };
-      state.view = 'form';
-      render();
+      // 編集開始時点のサーバー側更新時刻を記録(クライアント時計に依存しない競合検出)
+      state._editStartedAt = p.updatedAtMs || 0;
+      state._formDirty = false;
+      navigateTo('form');
     }
   });
   document.getElementById('delete-btn').addEventListener('click', () => {
@@ -1827,13 +2266,49 @@ function bindDetailEvents() {
       }
     });
   });
+
+  // 埋め込み未計算の写真がある場合、バックグラウンドで自動計算 (移行データ対応)
+  // ユーザーが詳細画面を開いた時に走り、AI検索の対象になる
+  if (p && Array.isArray(p.photos) && p.photos.length > 0) {
+    const needsBackfill = p.photos.some((_, i) =>
+      !Array.isArray(p.embeddings?.[i]) || p.embeddings[i].length === 0
+    );
+    if (needsBackfill && !state._backfillingId) {
+      state._backfillingId = p.id;
+      backfillEmbeddings(p).finally(() => { state._backfillingId = null; });
+    }
+  }
+}
+
+// 既存部品の写真にAI埋め込みを後付けで計算してFirestoreに保存
+async function backfillEmbeddings(part) {
+  const newEmbs = Array.isArray(part.embeddings) ? [...part.embeddings] : [];
+  let updated = false;
+  for (let i = 0; i < part.photos.length; i++) {
+    if (Array.isArray(newEmbs[i]) && newEmbs[i].length > 0) continue;
+    try {
+      const emb = await computeEmbedding(part.photos[i]);
+      newEmbs[i] = emb;
+      updated = true;
+    } catch (e) {
+      console.warn('Backfill embedding failed for photo', i, e);
+    }
+  }
+  if (updated && state.parts.find(x => x.id === part.id)) {
+    try {
+      await db.collection('parts').doc(part.id).update({
+        embeddings: embsToMap(newEmbs),
+      });
+    } catch (e) {
+      console.warn('Backfill save failed:', e);
+    }
+  }
 }
 
 function bindImportEvents() {
   document.getElementById('back-btn').addEventListener('click', () => {
     state.import = null;
-    state.view = 'list';
-    render();
+    navigateTo('list');
   });
   document.querySelectorAll('.mode-option').forEach(el => {
     el.addEventListener('click', () => {
@@ -1876,17 +2351,45 @@ function bindModalEvents() {
   document.getElementById('modal-confirm').addEventListener('click', async () => {
     const id = state.selectedId;
     try {
+      // 写真もStorageから削除 (ベストエフォート)
+      const part = state.parts.find(x => x.id === id);
+      if (part && Array.isArray(part.photos)) {
+        for (const photoUrl of part.photos) {
+          deletePhotoFromStorage(photoUrl);  // 非同期で実行、待たない
+        }
+      }
       await db.collection('parts').doc(id).delete();
       state.confirmDel = false;
       state.selectedId = null;
-      state.view = 'list';
       flash('削除しました', 'success');
-      render();
+      navigateTo('list');
     } catch (e) {
       flash('削除エラー: ' + e.message, 'error');
     }
   });
+  // モーダル外側クリックで閉じる
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target === el) {
+        state.confirmDel = false;
+        state.duplicate = null;
+        render();
+      }
+    });
+  });
 }
+
+// ESC キーでモーダル/シートを閉じる (グローバル)
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (state.confirmDel || state.duplicate || state.menuOpen) {
+      state.confirmDel = false;
+      state.duplicate = null;
+      state.menuOpen = false;
+      render();
+    }
+  }
+});
 
 document.getElementById('import-file-input').addEventListener('change', (e) => {
   const file = e.target.files?.[0];
@@ -1896,8 +2399,14 @@ document.getElementById('import-file-input').addEventListener('change', (e) => {
 
 // ────── クリップボードペースト対応(フォーム画面のみ) ──────
 document.addEventListener('paste', async (e) => {
-  // フォーム画面 か AI画像検索開始画面 でのみ動作
   if (state.view !== 'form') return;
+  // テキスト入力欄にフォーカスがあれば画像ペーストは行わない (テキストペースト優先)
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+    // ただしテキストが含まれていない場合(=画像オンリー)はペースト対象として処理
+    const hasText = Array.from(e.clipboardData?.items || []).some(i => i.type === 'text/plain');
+    if (hasText) return;
+  }
   const items = e.clipboardData?.items;
   if (!items) return;
   for (const item of items) {
@@ -1912,22 +2421,25 @@ document.addEventListener('paste', async (e) => {
           flash('写真は最大5枚までです', 'error');
           return;
         }
+        let dataUrl;
         try {
-          const dataUrl = await resizeImage(file);
-          f.photos.push(dataUrl);
-          f.embeddings.push([]);
-          render();
-          flash('クリップボードから写真を追加しました', 'success');
-          // 埋め込み非同期計算
-          try {
-            const idx = f.photos.length - 1;
-            const emb = await computeEmbedding(dataUrl);
-            if (f.embeddings[idx] !== undefined) f.embeddings[idx] = emb;
-          } catch (err) {
-            console.warn('Embedding failed:', err);
-          }
+          dataUrl = await resizeImage(file);
         } catch {
           flash('写真の読み込みに失敗', 'error');
+          return;
+        }
+        f.photos.push(dataUrl);
+        f.embeddings.push([]);
+        state._formDirty = true;
+        render();
+        flash('クリップボードから写真を追加しました', 'success');
+        // 埋め込み非同期計算 (dataUrlで写真を特定し、追加・削除に耐える)
+        try {
+          const emb = await computeEmbedding(dataUrl);
+          const idx = f.photos.indexOf(dataUrl);
+          if (idx >= 0 && f.embeddings[idx]) f.embeddings[idx] = emb;
+        } catch (err) {
+          console.warn('Embedding failed:', err);
         }
       }
       break;
@@ -1935,14 +2447,8 @@ document.addEventListener('paste', async (e) => {
   }
 });
 
-// Service Workerはfile://では動かないので、HTTP/HTTPS時のみ登録
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => {
-      // Service Workerファイルが見つからない場合は無視(単一ファイル運用時など)
-    });
-  });
-}
+// (Service Worker は単一HTMLファイル運用のため未使用。
+//  オフライン対応は Firebase の enablePersistence で実現している)
 
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1978,6 +2484,8 @@ function checkIOSInstallHint() {
 }
 
 render();              // 初期ローディング画面表示
+// 初期履歴エントリを記録 (back button対応)
+try { history.replaceState({ view: 'list' }, '', '#list'); } catch {}
 initFirebase();        // Firebase接続&リアルタイム同期開始
 checkIOSInstallHint();
 </script>
