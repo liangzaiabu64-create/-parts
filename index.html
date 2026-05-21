@@ -384,14 +384,13 @@
 // (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
 // ═══════════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
-  authDomain: "parts-1-40d96.firebaseapp.com",
-  projectId: "parts-1-40d96",
-  storageBucket: "parts-1-40d96.firebasestorage.app",
-  messagingSenderId: "695101125652",
-  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
- 
 // ═══════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'spare-parts-v1';   // 旧localStorage用(マイグレーション用に保持)
@@ -781,12 +780,18 @@ window.addEventListener('popstate', (e) => {
 });
 
 // 写真は1MB制限のため少し強めに圧縮 (720px / quality 0.65)
+// iOS Safari の File 実体解放問題対策: タイムアウトを設けて永久ハングを防ぐ
 function resizeImage(file, maxWidth = 720, quality = 0.65) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    // iOS で稀に reader が永久に応答しないケースに備えてタイムアウト
+    const timeout = setTimeout(() => {
+      reject(new Error('画像の読み込みがタイムアウトしました (iOS の場合は再起動・再撮影をお試しください)'));
+    }, 15000);
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
+        clearTimeout(timeout);
         const canvas = document.createElement('canvas');
         const ratio = Math.min(1, maxWidth / img.width);
         canvas.width = Math.round(img.width * ratio);
@@ -794,10 +799,10 @@ function resizeImage(file, maxWidth = 720, quality = 0.65) {
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = reject;
+      img.onerror = () => { clearTimeout(timeout); reject(new Error('画像のデコード失敗')); };
       img.src = e.target.result;
     };
-    reader.onerror = reject;
+    reader.onerror = () => { clearTimeout(timeout); reject(new Error('ファイルの読み込み失敗')); };
     reader.readAsDataURL(file);
   });
 }
@@ -1891,10 +1896,11 @@ function bindListEvents() {
   // AI画像検索ボタン
   const aiInput = document.getElementById('ai-search-input');
   document.getElementById('ai-search-btn').addEventListener('click', () => aiInput.click());
-  aiInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (file) runAiSearch(file);
+  aiInput.addEventListener('change', async (e) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    if (file) await runAiSearch(file);
+    input.value = '';  // 処理完了後にリセット (iOS WebKit対策)
   });
   bindCardEvents();
   // 「もっと見る」ボタン (初期表示)
@@ -2045,15 +2051,23 @@ function bindFormEvents() {
     }
   }
 
-  cameraInput.addEventListener('change', (e) => {
-    const files = e.target.files;
-    e.target.value = '';
-    if (files && files.length > 0) attachPhotos(files);
+  // iOS WebKit対策: value のクリアを処理の「後」に移動
+  // 早すぎるクリアは File 実体を解放させ、後続の FileReader が永久に応答しない
+  cameraInput.addEventListener('change', async (e) => {
+    const input = e.target;
+    const files = input.files;
+    if (files && files.length > 0) {
+      await attachPhotos(files);
+    }
+    input.value = '';  // 処理完了後にリセット
   });
-  libraryInput.addEventListener('change', (e) => {
-    const files = e.target.files;
-    e.target.value = '';
-    if (files && files.length > 0) attachPhotos(files);
+  libraryInput.addEventListener('change', async (e) => {
+    const input = e.target;
+    const files = input.files;
+    if (files && files.length > 0) {
+      await attachPhotos(files);
+    }
+    input.value = '';  // 処理完了後にリセット
   });
 
   // 空状態のボタンと「+ 追加」タイル
@@ -2416,10 +2430,11 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-document.getElementById('import-file-input').addEventListener('change', (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (file) handleImportFile(file);
+document.getElementById('import-file-input').addEventListener('change', async (e) => {
+  const input = e.target;
+  const file = input.files?.[0];
+  if (file) await handleImportFile(file);
+  input.value = '';  // 処理完了後にリセット (iOS WebKit対策)
 });
 
 // ────── クリップボードペースト対応(フォーム画面のみ) ──────
