@@ -384,14 +384,13 @@
 // (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
 // ═══════════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
-  authDomain: "parts-1-40d96.firebaseapp.com",
-  projectId: "parts-1-40d96",
-  storageBucket: "parts-1-40d96.firebasestorage.app",
-  messagingSenderId: "695101125652",
-  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
-
 // ═══════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'spare-parts-v1';   // 旧localStorage用(マイグレーション用に保持)
@@ -513,7 +512,19 @@ function startSync() {
             updatedAtMs: d.updatedAt?.toMillis?.() || d.createdAt?.toMillis?.() || 0,
           };
         });
-        state.syncStatus = snapshot.metadata.fromCache ? 'offline' : 'synced';
+        // 同期ステータス判定:
+        // Firestoreの fromCache フラグは「すべてのドキュメントがサーバー確認済み」でないと
+        // false にならず、実用的には実際は同期できていても true のままになりがち。
+        // そのため、ブラウザの online 状態 + pendingWrites の有無を主な判断材料とする。
+        if (!navigator.onLine) {
+          state.syncStatus = 'offline';
+        } else if (snapshot.metadata.hasPendingWrites) {
+          // 書き込み待機中 = サーバーへの反映待ち。接続自体は通常活きている
+          state.syncStatus = 'connecting';
+        } else {
+          // ブラウザがオンラインで保留中書き込みなし = 実質同期済みと判定
+          state.syncStatus = 'synced';
+        }
         render();
       },
       (error) => {
@@ -523,6 +534,18 @@ function startSync() {
       }
     );
 }
+
+// ブラウザのオンライン/オフライン状態変化を監視
+window.addEventListener('online', () => {
+  if (state.syncStatus === 'offline') {
+    state.syncStatus = 'synced';
+    render();
+  }
+});
+window.addEventListener('offline', () => {
+  state.syncStatus = 'offline';
+  render();
+});
 
 async function checkMigration() {
   const localData = localStorage.getItem(STORAGE_KEY);
