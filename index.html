@@ -384,12 +384,12 @@
 // (Firebase Console → プロジェクト設定 → 全般 → SDK setup から取得)
 // ═══════════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
-  authDomain: "parts-1-40d96.firebaseapp.com",
-  projectId: "parts-1-40d96",
-  storageBucket: "parts-1-40d96.firebasestorage.app",
-  messagingSenderId: "695101125652",
-  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 // ═══════════════════════════════════════════════════════════════════
 
@@ -686,10 +686,17 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
+// Storage が実際に動くか不明な状態で起動するため、
+// 「動かないと判明したらフラグを立てて以降はスキップ」する設計にする。
+// これにより Option B (Storage 未有効化) でも安全にbase64フォールバックする。
+let storageWorks = null;  // null=未確認, true=利用可能, false=利用不可
+
 // 写真をStorageにアップロード → ダウンロードURLを返す
 // 失敗時は元のdataUrlをそのまま返す (base64フォールバック)
+// Storage 未設定/未有効化の場合、初回 6秒でタイムアウトして以降スキップ
 async function uploadPhotoToStorage(dataUrl, partIdHint = '') {
   if (!storage) return dataUrl;
+  if (storageWorks === false) return dataUrl;  // 既知の失敗 → 即スキップ
   if (!isDataUrl(dataUrl)) return dataUrl;  // 既にURLなら何もしない
   try {
     const blob = dataUrlToBlob(dataUrl);
@@ -698,17 +705,23 @@ async function uploadPhotoToStorage(dataUrl, partIdHint = '') {
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const path = `parts-photos/${uid}/${fileName}`;
     const ref = storage.ref(path);
-    await ref.put(blob, { contentType: blob.type });
-    return await ref.getDownloadURL();
+    // 6秒タイムアウトで競争。Storage未設定なら確実に失敗してbase64にフォールバック
+    const url = await Promise.race([
+      ref.put(blob, { contentType: blob.type }).then(() => ref.getDownloadURL()),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 6000))
+    ]);
+    storageWorks = true;
+    return url;
   } catch (e) {
-    console.warn('Storage upload failed, falling back to base64:', e);
+    storageWorks = false;
+    console.warn('Storage unavailable, using base64 fallback:', e.message);
     return dataUrl;
   }
 }
 
 // 写真の一括アップロード (新規追加 or 既存の置き換え)
 async function uploadPhotos(photos) {
-  if (!storage) return photos;
+  if (!storage || storageWorks === false) return photos;
   const out = [];
   for (const p of photos) {
     if (isDataUrl(p)) {
@@ -2162,9 +2175,9 @@ async function doSave(forceOverwrite = false) {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>保存中…'; }
 
   try {
-    // ① 写真をStorageにアップロード (新規base64分のみ - 既存URLはそのまま)
-    if (storage && Array.isArray(f.photos) && f.photos.some(isDataUrl)) {
-      if (saveBtn) saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>写真をアップロード中…';
+    // ① 写真をStorageにアップロード (Storage 未有効化なら自動的にスキップしてbase64保存)
+    if (storage && storageWorks !== false && Array.isArray(f.photos) && f.photos.some(isDataUrl)) {
+      if (saveBtn) saveBtn.innerHTML = '<svg><use href="#i-save"/></svg>写真を処理中…';
       f.photos = await uploadPhotos(f.photos);
     }
 
