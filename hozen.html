@@ -188,6 +188,79 @@
   .anim-up { animation: viewIn 0.25s ease-out; }
   @keyframes viewIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .hidden { display: none !important; }
+
+  /* ───── ヘッダーボタン群（追加・印刷・再読込） ───── */
+  .header-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* ───── 項目フォーム ───── */
+  .if-input { width: 100%; background: #0f0f0f; border: 1px solid #262626; border-radius: 10px; padding: 10px 12px; color: #fafafa; font-size: 14px; outline: none; transition: border-color 0.15s; }
+  .if-input:focus { border-color: #fb923c; }
+  .if-input.mono { font-family: ui-monospace, monospace; }
+  .if-input::-webkit-outer-spin-button, .if-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .if-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-block label .req { color: #fb923c; font-size: 9px; margin-left: 4px; background: rgba(251,146,60,0.12); padding: 1px 5px; border-radius: 4px; }
+  .modal-sub-actions { display: flex; gap: 16px; margin-top: 8px; padding-top: 14px; border-top: 1px solid #262626; }
+  .sub-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #a3a3a3; transition: color 0.15s; }
+  .sub-link:hover { color: #fafafa; }
+  .sub-link.danger { color: #f87171; margin-left: auto; }
+  .sub-link.danger:hover { color: #fca5a5; }
+
+  /* ───── 削除確認 ───── */
+  .del-target { background: #0f0f0f; border: 1px solid #262626; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .del-name { font-weight: 700; font-size: 15px; }
+  .del-model { font-size: 11px; color: #fb923c; margin-top: 3px; }
+  .del-warn { font-size: 13px; color: #a3a3a3; line-height: 1.5; margin: 0 0 14px; }
+  .del-norec { font-size: 12px; color: #525252; margin: 0; }
+  .del-check { display: flex; gap: 10px; align-items: flex-start; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 12px; cursor: pointer; }
+  .del-check input { margin-top: 2px; width: 16px; height: 16px; accent-color: #ef4444; flex-shrink: 0; }
+  .del-check span { font-size: 12px; color: #fca5a5; line-height: 1.5; }
+  .del-check small { color: #737373; }
+  .modal-btn.danger-btn { background: #ef4444; color: #fff; }
+  .modal-btn.danger-btn:hover { background: #dc2626; }
+
+  /* ───── 印刷ビュー（画面表示） ───── */
+  .print-screen { min-height: 100vh; }
+  .print-toolbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: rgba(10,10,10,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #171717; }
+  .pt-back { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #a3a3a3; padding: 8px 12px; border-radius: 8px; transition: all 0.15s; }
+  .pt-back:hover { background: #171717; color: #fafafa; }
+  .pt-tabs { display: flex; gap: 6px; margin: 0 auto; }
+  .pt-tab { padding: 8px 16px; background: #171717; border: 1px solid #262626; border-radius: 8px; font-size: 13px; font-weight: 600; color: #a3a3a3; transition: all 0.15s; }
+  .pt-tab.active { background: rgba(251,146,60,0.12); border-color: #fb923c; color: #fb923c; }
+  .pt-print { display: inline-flex; align-items: center; gap: 6px; background: #fb923c; color: #0a0a0a; font-weight: 700; font-size: 13px; padding: 9px 16px; border-radius: 9px; transition: all 0.15s; }
+  .pt-print:hover { background: #fdba74; }
+
+  .print-doc { background: #fff; color: #1a1a1a; max-width: 1000px; margin: 24px auto; padding: 32px 36px; border-radius: 8px; }
+  .print-head { border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; margin-bottom: 16px; }
+  .print-title { font-size: 22px; font-weight: 900; }
+  .print-meta { display: flex; gap: 24px; margin-top: 8px; font-size: 13px; color: #444; }
+  .print-meta b { color: #1a1a1a; }
+  .print-summary { display: flex; gap: 16px; margin-bottom: 16px; }
+  .ps-cell { flex: 1; border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; display: flex; flex-direction: column; }
+  .ps-label { font-size: 11px; color: #666; }
+  .ps-val { font-size: 28px; font-weight: 900; line-height: 1.1; }
+  .ps-frac { font-size: 11px; color: #888; }
+  .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .print-table th, .print-table td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; }
+  .print-table th { background: #f0f0f0; font-weight: 700; white-space: nowrap; }
+  .print-table .c-num { width: 32px; text-align: center; color: #888; }
+  .print-table .c-name { font-weight: 600; }
+  .print-table .c-model { font-family: ui-monospace, monospace; color: #c2410c; white-space: nowrap; }
+  .print-table .c-center { text-align: center; }
+  .print-table .c-check { text-align: center; font-size: 18px; width: 48px; }
+  .print-table .c-sign { width: 90px; }
+  .print-table .c-status.done { color: #15803d; font-weight: 700; }
+  .print-foot { margin-top: 12px; font-size: 11px; color: #666; }
+
+  /* ───── 印刷時のスタイル（紙に出るのは print-doc だけ） ───── */
+  @media print {
+    body { background: #fff !important; }
+    body::before { display: none !important; }   /* グリッド背景を消す */
+    .no-print { display: none !important; }
+    .print-doc { margin: 0; padding: 0; border-radius: 0; max-width: none; }
+    .print-screen { min-height: 0; }
+    .print-table th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 14mm; }
+  }
 </style>
 </head>
 <body>
@@ -204,6 +277,7 @@
 <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+<symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
 </defs></svg>
 
 <div id="app" class="container"></div>
@@ -244,6 +318,9 @@ let state = {
   modalItemId: null,       // 詳細モーダルで開いている項目ID
   _editNote: '',
   _editComment: '',
+  itemForm: null,          // 項目の追加・編集フォーム（nullなら非表示）
+  confirmDelItem: null,    // 削除確認中の項目（nullなら非表示）
+  printMode: null,         // 印刷ビュー: null | 'checklist' | 'report'
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -567,11 +644,23 @@ function render() {
     app.innerHTML = `<div class="center-load"><div class="loader"></div>読み込み中…</div>`;
     return;
   }
+  // 印刷ビュー（独立画面）
+  if (state.printMode) {
+    app.innerHTML = renderPrint();
+    bindPrint();
+    return;
+  }
   app.innerHTML = renderList();
   bindList();
-  // モーダル
+  // モーダル類（後勝ちで1つだけ出す）
   document.querySelector('.modal-overlay')?.remove();
-  if (state.modalItemId) {
+  if (state.itemForm) {
+    document.body.insertAdjacentHTML('beforeend', renderItemForm());
+    bindItemForm();
+  } else if (state.confirmDelItem) {
+    document.body.insertAdjacentHTML('beforeend', renderDeleteConfirm());
+    bindDeleteConfirm();
+  } else if (state.modalItemId) {
     document.body.insertAdjacentHTML('beforeend', renderModal());
     bindModal();
   }
@@ -643,7 +732,11 @@ function renderList() {
               <span>${state.syncStatus === 'synced' ? '同期済み' : state.syncStatus === 'loading' ? '読み込み中…' : 'エラー'}</span>
             </div>
           </div>
-          <button class="month-nav" id="reload-btn" title="再読み込み"><svg><use href="#i-repeat"/></svg></button>
+          <div class="header-btns">
+            <button class="month-nav" id="add-item-btn" title="項目を追加"><svg><use href="#i-plus"/></svg></button>
+            <button class="month-nav" id="print-btn" title="印刷"><svg><use href="#i-printer"/></svg></button>
+            <button class="month-nav" id="reload-btn" title="再読み込み"><svg><use href="#i-repeat"/></svg></button>
+          </div>
         </div>
         <div class="month-bar">
           <button class="month-nav" id="prev-month" ${monthNum <= 1 ? 'disabled' : ''}><svg><use href="#i-chev-l"/></svg></button>
@@ -695,6 +788,117 @@ function renderEmpty() {
     </div>
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 印刷ビュー（機能要件6）
+//   2種類を切替: チェックリスト（当月の予定一覧）と 進捗レポート（実施率込み）。
+//   画面の操作部は print.css で印刷時に隠し、紙に出るのは表だけにする。
+// ═══════════════════════════════════════════════════════════════════
+function renderPrint() {
+  const ym = state.ym;
+  const [yy, mm] = ym.split('-');
+  const rows = buildMonthView(ym);
+  // 予定がある項目だけを対象に（チェックリスト・レポートとも当月予定が母数）
+  const planned = rows.filter(r => r.rec.planned);
+  const prog = calcProgress(ym);
+  const monthPct = prog.month.planned > 0 ? Math.round(prog.month.done / prog.month.planned * 100) : 0;
+  const cumPct = prog.cumulative.planned > 0 ? Math.round(prog.cumulative.done / prog.cumulative.planned * 100) : 0;
+  const today = todayStr();
+
+  const isReport = state.printMode === 'report';
+
+  // 表の行を組む
+  const bodyRows = planned.map((r, i) => {
+    const { item, rec } = r;
+    const statusText = rec.status === '整備後確認' ? '整備後確認済' : rec.status === '実施済' ? '実施済' : '未実施';
+    if (isReport) {
+      // 進捗レポート: 実施状況・実施日・確認予定日を含む
+      return `<tr>
+        <td class="c-num">${i + 1}</td>
+        <td>${esc(item.process)}</td>
+        <td>${esc(item.part)}</td>
+        <td class="c-name">${esc(item.name)}</td>
+        <td class="c-model">${esc(item.model_no)}</td>
+        <td class="c-center">${item.cycle_months || ''}</td>
+        <td class="c-center c-status ${rec.status !== '未' ? 'done' : ''}">${statusText}</td>
+        <td class="c-center">${esc(rec.done_date)}</td>
+        <td class="c-center">${esc(rec.check_due_date)}</td>
+      </tr>`;
+    }
+    // チェックリスト: 手書きチェック欄を設ける
+    return `<tr>
+      <td class="c-num">${i + 1}</td>
+      <td>${esc(item.process)}</td>
+      <td>${esc(item.part)}</td>
+      <td class="c-name">${esc(item.name)}</td>
+      <td class="c-model">${esc(item.model_no)}</td>
+      <td class="c-center">${item.cycle_months || ''}</td>
+      <td class="c-center">${esc(String(item.quantity ?? ''))}</td>
+      <td class="c-check">☐</td>
+      <td class="c-sign"></td>
+    </tr>`;
+  }).join('');
+
+  const headRow = isReport ? `
+    <tr><th>No</th><th>工程</th><th>部位</th><th>品名</th><th>型番</th><th>周期</th><th>状況</th><th>実施日</th><th>確認予定日</th></tr>
+  ` : `
+    <tr><th>No</th><th>工程</th><th>部位</th><th>品名</th><th>型番</th><th>周期</th><th>数量</th><th>実施</th><th>確認者</th></tr>
+  `;
+
+  return `
+    <div class="print-screen">
+      <div class="print-toolbar no-print">
+        <button class="pt-back" id="print-back"><svg width="16" height="16"><use href="#i-chev-l"/></svg>戻る</button>
+        <div class="pt-tabs">
+          <button class="pt-tab ${!isReport ? 'active' : ''}" data-mode="checklist">チェックリスト</button>
+          <button class="pt-tab ${isReport ? 'active' : ''}" data-mode="report">進捗レポート</button>
+        </div>
+        <button class="pt-print" id="do-print"><svg width="16" height="16"><use href="#i-printer"/></svg>印刷する</button>
+      </div>
+
+      <div class="print-doc">
+        <div class="print-head">
+          <div class="print-title">NID保全カレンダー ${isReport ? '進捗レポート' : 'チェックリスト'}</div>
+          <div class="print-meta">
+            <span>対象年月: <b>${yy}年${Number(mm)}月</b></span>
+            <span>出力日: ${today}</span>
+            <span>対象項目: ${planned.length}件</span>
+          </div>
+        </div>
+        ${isReport ? `
+          <div class="print-summary">
+            <div class="ps-cell"><span class="ps-label">単月実施率</span><span class="ps-val">${monthPct}%</span><span class="ps-frac">${prog.month.done}/${prog.month.planned}件</span></div>
+            <div class="ps-cell"><span class="ps-label">累計実施率（年間）</span><span class="ps-val">${cumPct}%</span><span class="ps-frac">${prog.cumulative.done}/${prog.cumulative.planned}件</span></div>
+          </div>
+        ` : ''}
+        <table class="print-table">
+          <thead>${headRow}</thead>
+          <tbody>${bodyRows || `<tr><td colspan="9" class="c-center">この月の予定項目はありません</td></tr>`}</tbody>
+        </table>
+        <div class="print-foot">
+          ${isReport ? '※ 状況は出力時点のものです。' : '※ 実施したら「実施」欄にチェックし、確認者欄に署名してください。'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindPrint() {
+  document.getElementById('print-back').addEventListener('click', () => {
+    state.printMode = null;
+    render();
+  });
+  document.querySelectorAll('.pt-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      state.printMode = t.dataset.mode;
+      render();
+    });
+  });
+  document.getElementById('do-print').addEventListener('click', () => {
+    window.print();   // ブラウザの印刷ダイアログを開く（PDF保存も可能）
+  });
+}
+
 
 function renderItemCard(row) {
   const { item, rec } = row;
@@ -790,6 +994,10 @@ function renderModal() {
             <label>コメント</label>
             <textarea id="edit-comment" rows="2" placeholder="メモ・申し送りなど">${esc(item.comment)}</textarea>
           </div>
+          <div class="modal-sub-actions">
+            <button class="sub-link" id="modal-edit-item"><svg width="13" height="13"><use href="#i-edit"/></svg>項目を編集</button>
+            <button class="sub-link danger" id="modal-delete-item"><svg width="13" height="13"><use href="#i-trash"/></svg>項目を削除</button>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="modal-btn close" id="modal-close">閉じる</button>
@@ -805,6 +1013,22 @@ function bindModal() {
   document.getElementById('modal-close').addEventListener('click', close);
   document.querySelector('.modal-overlay').addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) close();
+  });
+  // 項目を編集 → 編集フォームを開く（詳細モーダルは閉じる）
+  document.getElementById('modal-edit-item').addEventListener('click', () => {
+    const item = state.master.find(x => x.item_id === state.modalItemId);
+    if (!item) return;
+    state.itemForm = { mode: 'edit', ...item };
+    state.modalItemId = null;
+    render();
+  });
+  // 項目を削除 → 削除確認へ
+  document.getElementById('modal-delete-item').addEventListener('click', () => {
+    const item = state.master.find(x => x.item_id === state.modalItemId);
+    if (!item) return;
+    state.confirmDelItem = item;
+    state.modalItemId = null;
+    render();
   });
   document.getElementById('modal-save').addEventListener('click', async () => {
     const item = state.master.find(x => x.item_id === state.modalItemId);
@@ -826,10 +1050,205 @@ function bindModal() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 項目の追加・編集フォーム（機能要件5）
+// ═══════════════════════════════════════════════════════════════════
+
+// 新規項目のID発番: 取り込み連番(2026-001)と区別できる手動追加ID。
+//   '2026-M' + ランダム5文字。複数人が同時追加してもまず衝突しない。
+function genManualItemId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';  // 紛らわしい0/O/1/Iを除外
+  let r = '';
+  for (let i = 0; i < 5; i++) r += chars[Math.floor(Math.random() * chars.length)];
+  return `${TARGET_YEAR}-M${r}`;
+}
+
+function renderItemForm() {
+  const f = state.itemForm;
+  const isEdit = f.mode === 'edit';
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-head">
+          <div class="mh-name">${isEdit ? '項目を編集' : '点検項目を追加'}</div>
+          ${isEdit ? `<div class="mh-model font-tech">${esc(f.item_id)}</div>` : `<div class="mh-model font-tech">ID自動発番</div>`}
+        </div>
+        <div class="modal-body">
+          <div class="field-block">
+            <label>品名 <span class="req">必須</span></label>
+            <input class="if-input" id="if-name" type="text" value="${esc(f.name || '')}" placeholder="例: カムフォロア CF10-BUU">
+          </div>
+          <div class="field-block">
+            <label>型番（部品連携の照合キー）</label>
+            <input class="if-input mono" id="if-model" type="text" value="${esc(f.model_no || '')}" placeholder="例: CF10-BUU">
+          </div>
+          <div class="if-row">
+            <div class="field-block">
+              <label>工程</label>
+              <input class="if-input" id="if-process" type="text" value="${esc(f.process || '')}" placeholder="例: フィーダー">
+            </div>
+            <div class="field-block">
+              <label>部位</label>
+              <input class="if-input" id="if-part" type="text" value="${esc(f.part || '')}" placeholder="例: クランプ">
+            </div>
+          </div>
+          <div class="if-row">
+            <div class="field-block">
+              <label>交換周期（月）</label>
+              <input class="if-input" id="if-cycle" type="number" inputmode="numeric" min="0" value="${f.cycle_months ?? ''}" placeholder="例: 6">
+            </div>
+            <div class="field-block">
+              <label>設置数量</label>
+              <input class="if-input" id="if-qty" type="text" value="${esc(String(f.quantity ?? ''))}" placeholder="例: 16">
+            </div>
+          </div>
+          <div class="field-block">
+            <label>前回交換日（YYYY-MM-DD・任意）</label>
+            <input class="if-input mono" id="if-prev" type="text" value="${esc(f.prev_change_date || '')}" placeholder="例: 2025-10-01（不明なら空欄）">
+          </div>
+          <div class="field-block">
+            <label>注意書き</label>
+            <textarea id="if-note" rows="2" placeholder="作業上の注意点など">${esc(f.note || '')}</textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn close" id="if-cancel">キャンセル</button>
+          <button class="modal-btn save" id="if-save">${isEdit ? '更新' : '追加'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindItemForm() {
+  const close = () => { state.itemForm = null; render(); };
+  document.getElementById('if-cancel').addEventListener('click', close);
+  document.querySelector('.modal-overlay').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) close();
+  });
+  document.getElementById('if-save').addEventListener('click', async () => {
+    const f = state.itemForm;
+    const name = document.getElementById('if-name').value.trim();
+    if (!name) { flash('品名は必須です', 'error'); return; }
+    const cycleVal = document.getElementById('if-cycle').value.trim();
+    const qtyVal = document.getElementById('if-qty').value.trim();
+    // 数量は数値なら数値、単位付き(40L等)なら文字列のまま許容
+    const qtyNum = Number(qtyVal);
+    const quantity = (qtyVal !== '' && !isNaN(qtyNum)) ? qtyNum : qtyVal;
+
+    const item = {
+      item_id: f.mode === 'edit' ? f.item_id : genManualItemId(),
+      process: document.getElementById('if-process').value.trim(),
+      part: document.getElementById('if-part').value.trim(),
+      name: name,
+      model_no: document.getElementById('if-model').value.trim(),
+      model_needs_check: false,   // 手動入力は確認済み扱い
+      quantity: quantity,
+      cycle_months: cycleVal === '' ? '' : Number(cycleVal),
+      prev_change_date: document.getElementById('if-prev').value.trim(),
+      prev_change_raw: document.getElementById('if-prev').value.trim(),
+      note: document.getElementById('if-note').value.trim(),
+      comment: f.comment || '',
+    };
+
+    try {
+      if (f.mode === 'edit') {
+        await apiPost({ action: 'updateMasterItem', item });
+        // ローカル反映
+        const idx = state.master.findIndex(x => x.item_id === item.item_id);
+        if (idx >= 0) state.master[idx] = normalizeMaster(item);
+        flash('項目を更新しました', 'success');
+      } else {
+        await apiPost({ action: 'addMasterItem', item });
+        state.master.push(normalizeMaster(item));
+        flash('項目を追加しました', 'success');
+      }
+    } catch (e) {
+      flash('保存エラー: ' + e.message, 'error');
+      return;
+    }
+    state.itemForm = null;
+    render();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 項目の削除確認（物理削除・機能要件5）
+// ═══════════════════════════════════════════════════════════════════
+function renderDeleteConfirm() {
+  const item = state.confirmDelItem;
+  // この項目に紐づく実施記録の件数を数える（履歴が消える警告のため）
+  const recCount = state.records.filter(r => r.item_id === item.item_id).length;
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-head">
+          <div class="mh-name" style="color:#f87171;">項目を削除しますか？</div>
+        </div>
+        <div class="modal-body">
+          <div class="del-target">
+            <div class="del-name">${esc(item.name) || '(無題)'}</div>
+            <div class="del-model font-tech">${esc(item.model_no) || '—'} ・ ${esc(item.item_id)}</div>
+          </div>
+          <p class="del-warn">この操作は取り消せません。マスターからこの項目を完全に削除します。</p>
+          ${recCount > 0 ? `
+            <label class="del-check">
+              <input type="checkbox" id="del-records" checked>
+              <span>紐づく実施記録 <b>${recCount}件</b> も一緒に削除する<br><small>（チェックを外すと記録は残りますが、参照先の項目が消えます）</small></span>
+            </label>
+          ` : `<p class="del-norec">この項目に紐づく実施記録はありません。</p>`}
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn close" id="del-cancel">キャンセル</button>
+          <button class="modal-btn danger-btn" id="del-confirm">削除する</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindDeleteConfirm() {
+  const close = () => { state.confirmDelItem = null; render(); };
+  document.getElementById('del-cancel').addEventListener('click', close);
+  document.querySelector('.modal-overlay').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) close();
+  });
+  document.getElementById('del-confirm').addEventListener('click', async () => {
+    const item = state.confirmDelItem;
+    const delRecCheckbox = document.getElementById('del-records');
+    const deleteRecords = delRecCheckbox ? delRecCheckbox.checked : false;
+    try {
+      await apiPost({ action: 'deleteMasterItem', item_id: item.item_id, deleteRecords });
+      // ローカル反映
+      state.master = state.master.filter(x => x.item_id !== item.item_id);
+      if (deleteRecords) state.records = state.records.filter(r => r.item_id !== item.item_id);
+      flash('項目を削除しました', 'success');
+    } catch (e) {
+      flash('削除エラー: ' + e.message, 'error');
+      return;
+    }
+    state.confirmDelItem = null;
+    render();
+  });
+}
+
 function bindList() {
   document.getElementById('reload-btn')?.addEventListener('click', loadAll);
   document.getElementById('prev-month')?.addEventListener('click', () => changeMonth(-1));
   document.getElementById('next-month')?.addEventListener('click', () => changeMonth(1));
+  // 項目を追加 → 空のフォームを開く
+  document.getElementById('add-item-btn')?.addEventListener('click', () => {
+    state.itemForm = { mode: 'add', name: '', model_no: '', process: '', part: '',
+      cycle_months: '', quantity: '', prev_change_date: '', note: '', comment: '' };
+    render();
+  });
+  // 印刷 → 印刷ビューへ（既定はチェックリスト）
+  document.getElementById('print-btn')?.addEventListener('click', () => {
+    state.printMode = 'checklist';
+    render();
+  });
 
   document.querySelectorAll('.chip').forEach(c => {
     c.addEventListener('click', () => { state.filter = c.dataset.filter; render(); });
