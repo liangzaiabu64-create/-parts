@@ -218,6 +218,20 @@
 // ═══════════════════════════════════════════════════════════════════
 const API_URL_KEY = 'nid-hozen-api-url';
 
+// 対象年は2026固定（マスターが2026年のため）。月だけ1〜12で動かす。
+// ※ state より前に定義する必要がある。state初期化時に currentYearMonth() が
+//   TARGET_YEAR を参照するため、後ろに置くと「初期化前アクセス」エラーになる。
+const TARGET_YEAR = 2026;
+
+function currentYearMonth() {
+  const d = new Date();
+  // 現在が2026年ならその月、それ以外は2026-01を初期表示
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  if (y === TARGET_YEAR) return `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+  return `${TARGET_YEAR}-01`;
+}
+
 let state = {
   apiUrl: localStorage.getItem(API_URL_KEY) || '',
   view: 'list',            // 'setup' | 'list'
@@ -231,18 +245,6 @@ let state = {
   _editNote: '',
   _editComment: '',
 };
-
-// 対象年は2026固定（マスターが2026年のため）。月だけ1〜12で動かす。
-const TARGET_YEAR = 2026;
-
-function currentYearMonth() {
-  const d = new Date();
-  // 現在が2026年ならその月、それ以外は2026-01を初期表示
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  if (y === TARGET_YEAR) return `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
-  return `${TARGET_YEAR}-01`;
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // API 通信
