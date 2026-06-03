@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NID保全カレンダー">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0a'/%3E%3Cpath d='M16 14h32v8H16zM16 28h32v22H16z' fill='none' stroke='%23fb923c' stroke-width='3'/%3E%3Cpath d='M22 36l5 5 9-11' fill='none' stroke='%23fb923c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>NID保全カレンダー</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a; color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .font-tech { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; letter-spacing: -0.01em; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px);
+    background-size: 40px 40px; opacity: 0.04;
+    pointer-events: none; z-index: 0;
+  }
+  .container { position: relative; max-width: 720px; margin: 0 auto; padding-bottom: 80px; }
+
+  /* ───── ヘッダー ───── */
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10,10,10,0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #171717; padding: 20px 20px 14px;
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+  .subtitle { font-size: 10px; color: #404040; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 4px; }
+  .sync-status { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #525252; font-family: ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #525252; flex-shrink: 0; }
+  .sync-dot.synced { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+  .sync-dot.loading { background: #fb923c; animation: pulse 1.5s infinite; }
+  .sync-dot.error { background: #ef4444; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ───── 月セレクタ ───── */
+  .month-bar { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .month-nav { width: 38px; height: 38px; border-radius: 10px; background: #171717; border: 1px solid #262626; display: flex; align-items: center; justify-content: center; color: #a3a3a3; transition: all 0.15s; flex-shrink: 0; }
+  .month-nav:hover { background: #262626; color: #fb923c; }
+  .month-nav:active { transform: scale(0.92); }
+  .month-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+  .month-nav svg { width: 18px; height: 18px; }
+  .month-display { flex: 1; text-align: center; }
+  .month-display .ym { font-size: 26px; font-weight: 900; font-family: ui-monospace, monospace; letter-spacing: -0.02em; }
+  .month-display .ym .mon { color: #fb923c; }
+  .month-display .label { font-size: 10px; color: #525252; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 2px; }
+
+  /* ───── 進捗集計バー ───── */
+  .progress-section { padding: 16px 20px 8px; }
+  .progress-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .progress-card { background: #171717; border: 1px solid #262626; border-radius: 14px; padding: 14px 16px; }
+  .progress-card .pc-label { font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: #737373; margin-bottom: 8px; }
+  .progress-card .pc-rate { display: flex; align-items: baseline; gap: 4px; }
+  .progress-card .pc-rate .num { font-family: ui-monospace, monospace; font-weight: 900; font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .progress-card .pc-rate .pct { font-size: 14px; color: #737373; font-weight: 700; }
+  .progress-card .pc-frac { font-family: ui-monospace, monospace; font-size: 11px; color: #525252; margin-top: 4px; }
+  .progress-card.month .num { color: #fb923c; }
+  .progress-card.cumulative .num { color: #60a5fa; }
+  .progress-bar-track { height: 5px; background: #0a0a0a; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .progress-card.month .progress-bar-fill { background: #fb923c; }
+  .progress-card.cumulative .progress-bar-fill { background: #60a5fa; }
+
+  /* ───── フィルタチップ ───── */
+  .filter-chips { display: flex; gap: 6px; padding: 8px 20px 4px; flex-wrap: wrap; }
+  .chip { padding: 7px 13px; background: #171717; border: 1px solid #262626; border-radius: 999px; font-size: 12px; font-weight: 600; color: #a3a3a3; transition: all 0.15s; }
+  .chip:hover { background: #262626; }
+  .chip.active { background: rgba(251,146,60,0.12); border-color: #fb923c; color: #fb923c; }
+  .chip .cnt { font-family: ui-monospace, monospace; opacity: 0.7; margin-left: 4px; }
+
+  /* ───── 項目リスト ───── */
+  .list { padding: 12px 20px 0; display: flex; flex-direction: column; gap: 8px; }
+  .item-card { background: #171717; border: 1px solid #262626; border-radius: 14px; overflow: hidden; transition: border-color 0.15s; }
+  .item-card.status-done { border-color: rgba(34,197,94,0.4); }
+  .item-card.status-check { border-color: rgba(96,165,250,0.45); }
+  .item-card.carried { border-left: 3px solid #eab308; }
+  .item-main { display: flex; align-items: stretch; }
+  .item-statusbar { width: 5px; flex-shrink: 0; background: #404040; }
+  .item-card.status-done .item-statusbar { background: #22c55e; }
+  .item-card.status-check .item-statusbar { background: #60a5fa; }
+  .item-body { flex: 1; min-width: 0; padding: 12px 14px; }
+  .item-head { display: flex; align-items: flex-start; gap: 8px; }
+  .item-titles { flex: 1; min-width: 0; }
+  .item-name { font-weight: 700; font-size: 14px; line-height: 1.25; }
+  .item-model { font-family: ui-monospace, monospace; font-size: 11px; color: rgba(251,146,60,0.9); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; font-size: 10px; color: #737373; font-family: ui-monospace, monospace; }
+  .item-meta .mtag { display: inline-flex; align-items: center; gap: 3px; }
+  .item-meta .mtag svg { width: 11px; height: 11px; opacity: 0.7; }
+  .status-pill { flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-family: ui-monospace, monospace; white-space: nowrap; }
+  .status-pill.s-undone { background: #262626; color: #a3a3a3; }
+  .status-pill.s-done { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .status-pill.s-check { background: rgba(96,165,250,0.15); color: #60a5fa; }
+  .carry-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #fbbf24; font-family: ui-monospace, monospace; margin-left: 6px; }
+
+  /* アクションボタン行 */
+  .item-actions { display: flex; gap: 6px; padding: 0 14px 12px; }
+  .act-btn { flex: 1; padding: 9px 8px; border-radius: 9px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.15s; border: 1px solid #262626; background: #0f0f0f; color: #a3a3a3; }
+  .act-btn svg { width: 14px; height: 14px; }
+  .act-btn:active { transform: scale(0.96); }
+  .act-btn.primary { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.4); color: #4ade80; }
+  .act-btn.primary:hover { background: rgba(34,197,94,0.2); }
+  .act-btn.check { background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.4); color: #60a5fa; }
+  .act-btn.check:hover { background: rgba(96,165,250,0.2); }
+  .act-btn.undo:hover { background: #1a1a1a; color: #fafafa; }
+  .act-btn.plan { background: rgba(251,146,60,0.1); border-color: rgba(251,146,60,0.35); color: #fb923c; }
+
+  /* ───── 空状態 ───── */
+  .empty { text-align: center; padding: 70px 24px; }
+  .empty-icon { width: 60px; height: 60px; border-radius: 16px; background: #171717; border: 1px solid #262626; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .empty-icon svg { width: 26px; height: 26px; color: #525252; }
+  .empty h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+  .empty p { margin: 0; font-size: 13px; color: #737373; }
+
+  /* ───── トースト ───── */
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #262626; border: 1px solid #404040; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 60; box-shadow: 0 20px 40px rgba(0,0,0,0.5); animation: slideUp 0.25s ease-out; max-width: 90vw; text-align: center; }
+  .toast.error { border-color: #ef4444; }
+  .toast.success { border-color: #22c55e; }
+  @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+  /* ───── ローディング ───── */
+  .loader { border: 3px solid #262626; border-top-color: #fb923c; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .center-load { padding: 80px 24px; text-align: center; color: #737373; }
+  .center-load .loader { margin: 0 auto 16px; }
+
+  /* ───── セットアップ画面 ───── */
+  .setup { padding: 40px 24px; max-width: 520px; margin: 0 auto; }
+  .setup-icon { width: 60px; height: 60px; border-radius: 16px; background: rgba(251,146,60,0.1); border: 1px solid #fb923c; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }
+  .setup-icon svg { width: 26px; height: 26px; color: #fb923c; }
+  .setup h2 { margin: 0 0 8px; font-size: 20px; font-weight: 900; text-align: center; }
+  .setup .lead { text-align: center; color: #a3a3a3; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+  .setup-field { margin-bottom: 16px; }
+  .setup-field label { display: block; font-family: ui-monospace, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #737373; margin-bottom: 8px; }
+  .setup-field input { width: 100%; background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 12px 16px; color: #fafafa; font-size: 13px; outline: none; font-family: ui-monospace, monospace; transition: border-color 0.15s; }
+  .setup-field input:focus { border-color: #fb923c; }
+  .setup-btn { width: 100%; background: #fb923c; color: #0a0a0a; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 15px; transition: all 0.15s; }
+  .setup-btn:hover { background: #fdba74; }
+  .setup-btn:active { transform: scale(0.98); }
+  .setup-help { font-size: 12px; color: #525252; line-height: 1.6; margin-top: 16px; }
+  .setup-help code { background: #171717; padding: 2px 6px; border-radius: 4px; color: #fb923c; font-size: 11px; }
+
+  /* ───── 詳細モーダル(項目編集) ───── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: flex-end; justify-content: center; padding: 0; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (min-width: 640px) { .modal-overlay { align-items: center; padding: 16px; } }
+  .modal { background: #171717; border: 1px solid #262626; border-radius: 20px 20px 0 0; padding: 0; max-width: 520px; width: 100%; animation: slideUpModal 0.25s ease-out; max-height: 88vh; overflow-y: auto; }
+  @media (min-width: 640px) { .modal { border-radius: 20px; } }
+  @keyframes slideUpModal { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-handle { width: 36px; height: 4px; background: #404040; border-radius: 2px; margin: 12px auto 4px; }
+  .modal-head { padding: 12px 20px 16px; border-bottom: 1px solid #262626; }
+  .modal-head .mh-name { font-size: 18px; font-weight: 900; line-height: 1.2; }
+  .modal-head .mh-model { font-family: ui-monospace, monospace; font-size: 12px; color: #fb923c; margin-top: 4px; }
+  .modal-body { padding: 16px 20px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .detail-cell { background: #0f0f0f; border: 1px solid #262626; border-radius: 10px; padding: 10px 12px; }
+  .detail-cell .dc-label { font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #737373; margin-bottom: 4px; }
+  .detail-cell .dc-value { font-size: 13px; font-weight: 600; }
+  .detail-cell.full { grid-column: 1 / -1; }
+  .field-block { margin-bottom: 14px; }
+  .field-block label { display: block; font-family: ui-monospace, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #737373; margin-bottom: 7px; }
+  .field-block textarea { width: 100%; background: #0f0f0f; border: 1px solid #262626; border-radius: 10px; padding: 10px 12px; color: #fafafa; font-size: 13px; outline: none; resize: none; transition: border-color 0.15s; }
+  .field-block textarea:focus { border-color: #fb923c; }
+  .modal-actions { display: flex; gap: 8px; padding: 0 20px 24px; }
+  .modal-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 13px; transition: all 0.15s; }
+  .modal-btn.save { background: #fb923c; color: #0a0a0a; }
+  .modal-btn.save:hover { background: #fdba74; }
+  .modal-btn.close { background: #262626; color: #fafafa; }
+  .modal-btn.close:hover { background: #404040; }
+
+  .needs-check-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #fbbf24; font-family: ui-monospace, monospace; margin-left: 6px; }
+
+  .anim-up { animation: viewIn 0.25s ease-out; }
+  @keyframes viewIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></symbol>
+<symbol id="i-cog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+</defs></svg>
+
+<div id="app" class="container"></div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// 設定: Apps Script の Web アプリ URL
+//   セットアップ画面で入力すると localStorage に保存される。
+//   （URL自体は秘密情報ではないので保存先はlocalStorageで十分）
+// ═══════════════════════════════════════════════════════════════════
+const API_URL_KEY = 'nid-hozen-api-url';
+
+let state = {
+  apiUrl: localStorage.getItem(API_URL_KEY) || '',
+  view: 'list',            // 'setup' | 'list'
+  loading: false,
+  syncStatus: 'loading',   // 'loading' | 'synced' | 'error'
+  master: [],              // マスター点検項目（APIから取得）
+  records: [],             // 全実施記録（APIから取得）
+  ym: currentYearMonth(),  // 表示中の対象年月 'YYYY-MM'
+  filter: 'all',           // 'all' | 'planned' | 'undone' | 'done'
+  modalItemId: null,       // 詳細モーダルで開いている項目ID
+  _editNote: '',
+  _editComment: '',
+};
+
+// 対象年は2026固定（マスターが2026年のため）。月だけ1〜12で動かす。
+const TARGET_YEAR = 2026;
+
+function currentYearMonth() {
+  const d = new Date();
+  // 現在が2026年ならその月、それ以外は2026-01を初期表示
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  if (y === TARGET_YEAR) return `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+  return `${TARGET_YEAR}-01`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// API 通信
+//   Apps Script の doGet / doPost を叩く。
+//   GET: ?action=master / ?action=records
+//   POST: { action, ... }  ※Apps Scriptはプリフライト回避のためtext/plainで送る
+// ═══════════════════════════════════════════════════════════════════
+
+async function apiGet(action, params = {}) {
+  const url = new URL(state.apiUrl);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), { method: 'GET' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  return data;
+}
+
+async function apiPost(payload) {
+  // Apps Scriptへのpostは、CORSプリフライトを避けるため text/plain で送るのが定石。
+  // （application/jsonにするとOPTIONSが飛びApps Scriptが対応しないため失敗する）
+  const res = await fetch(state.apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'API error');
+  return data;
+}
+
+// マスターと実施記録を両方まとめて読み込む（API呼び出し回数の節約）
+async function loadAll() {
+  state.loading = true;
+  state.syncStatus = 'loading';
+  render();
+  try {
+    const [m, r] = await Promise.all([
+      apiGet('master'),
+      apiGet('records'),
+    ]);
+    state.master = (m.items || []).map(normalizeMaster);
+    state.records = (r.items || []).map(normalizeRecord);
+    state.syncStatus = 'synced';
+  } catch (e) {
+    state.syncStatus = 'error';
+    flash('読み込みエラー: ' + e.message, 'error');
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+// Sheetsから来た値は型が緩いので、扱いやすい形に整える
+function normalizeMaster(row) {
+  return {
+    item_id: String(row.item_id || ''),
+    process: String(row.process || ''),
+    part: String(row.part || ''),
+    name: String(row.name || ''),
+    model_no: String(row.model_no || ''),
+    model_needs_check: row.model_needs_check === true || row.model_needs_check === 'TRUE' || row.model_needs_check === 'true',
+    quantity: row.quantity,
+    cycle_months: row.cycle_months === '' || row.cycle_months == null ? null : Number(row.cycle_months),
+    prev_change_date: String(row.prev_change_date || ''),
+    prev_change_raw: String(row.prev_change_raw || ''),
+    note: String(row.note || ''),
+    comment: String(row.comment || ''),
+  };
+}
+
+function normalizeRecord(row) {
+  return {
+    record_id: String(row.record_id || ''),
+    item_id: String(row.item_id || ''),
+    year_month: String(row.year_month || ''),
+    planned: row.planned === true || row.planned === 'TRUE' || row.planned === 'true',
+    status: String(row.status || '未'),
+    done_date: String(row.done_date || ''),
+    check_due_date: String(row.check_due_date || ''),
+    carried_from: String(row.carried_from || ''),
+    updated_at: String(row.updated_at || ''),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 予定(planned)の自動計算
+//   前回交換日 + 周期×n が対象月と一致したら予定を立てる。
+//   周期が短ければ年に複数回（倍数すべて）。前回不明は自動計算せず予定なし。
+// ═══════════════════════════════════════════════════════════════════
+
+// 'YYYY-MM-DD' or 'YYYY-MM' を {y, m} に。失敗時 null。
+function parseYM(dateStr) {
+  if (!dateStr) return null;
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})/);
+  if (!m) return null;
+  return { y: Number(m[1]), m: Number(m[2]) };
+}
+
+// 2つの年月の差を「月数」で返す（b - a）
+function monthDiff(a, b) {
+  return (b.y - a.y) * 12 + (b.m - a.m);
+}
+
+// ある項目が対象年月(ym)に予定を持つか自動判定
+function isPlannedAuto(item, ym) {
+  const cycle = item.cycle_months;
+  if (!cycle || cycle <= 0) return false;       // 周期なし → 自動判定不可
+  const prev = parseYM(item.prev_change_date);
+  if (!prev) return false;                       // 前回不明 → 自動判定しない（人が設定）
+  const target = parseYM(ym);
+  if (!target) return false;
+  const diff = monthDiff(prev, target);          // 前回からの経過月数
+  if (diff <= 0) return false;                   // 前回交換日と同月以前は予定なし
+  // 経過月数が周期の倍数ならその月に予定（倍数すべて）
+  return diff % cycle === 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 対象月の「やるべき項目」とその実施記録を組み立てる
+//   方針: 毎月、該当する全項目ぶんの実施記録をあらかじめ生成する。
+//   ここではDB生成の前段として、画面表示用に master×records を結合する。
+//   - その月に予定(自動 or 記録済み)がある項目を「対象」として並べる
+//   - 既存の実施記録があればそれを使う。なければ仮レコードを組む（未保存）
+// ═══════════════════════════════════════════════════════════════════
+function buildMonthView(ym) {
+  const recByKey = {};   // item_id+ym → record
+  state.records.forEach(r => {
+    if (r.year_month === ym) recByKey[r.item_id] = r;
+  });
+
+  const rows = [];
+  state.master.forEach(item => {
+    const existing = recByKey[item.item_id];
+    const autoPlanned = isPlannedAuto(item, ym);
+    // 表示対象: 既存記録がある or 自動予定が立つ項目
+    if (!existing && !autoPlanned) return;
+    // 予定の決定: 既存記録があればその planned を尊重(Excelの〇を取り込み済み)。
+    //   記録が無い項目だけ、周期からの自動計算で補完する。
+    const rec = existing || makeVirtualRecord(item, ym, autoPlanned);
+    rows.push({ item, rec, virtual: !existing });
+  });
+
+  // 並び順: 未実施→整備後確認待ち→実施済 の順、その中はitem_id順
+  const order = { '未': 0, '実施済': 1, '整備後確認': 2 };
+  rows.sort((a, b) => {
+    const oa = order[a.rec.status] ?? 0;
+    const ob = order[b.rec.status] ?? 0;
+    if (oa !== ob) return oa - ob;
+    return a.item.item_id.localeCompare(b.item.item_id);
+  });
+  return rows;
+}
+
+// 未保存の仮レコードを組む（画面表示用。保存時にDBへ書く）
+function makeVirtualRecord(item, ym, planned) {
+  return {
+    record_id: `${item.item_id}__${ym}`,   // キー: item_id + 年月
+    item_id: item.item_id,
+    year_month: ym,
+    planned: planned,
+    status: '未',
+    done_date: '',
+    check_due_date: '',
+    carried_from: '',
+    updated_at: '',
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 実施ステータス操作（DB書き込み）
+// ═══════════════════════════════════════════════════════════════════
+
+// 実施日の1週間後を 'YYYY-MM-DD' で返す
+function addDays(dateStr, days) {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  d.setDate(d.getDate() + days);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function todayStr() { return addDays('', 0); }
+
+// レコードをupsert（あれば更新・なければ追加）してローカルにも反映
+async function upsertRecord(rec) {
+  // ローカル先行更新（楽観的UI）
+  const idx = state.records.findIndex(r => r.record_id === rec.record_id);
+  if (idx >= 0) state.records[idx] = { ...rec };
+  else state.records.push({ ...rec });
+  render();
+  try {
+    await apiPost({ action: 'upsertRecord', record: rec });
+    state.syncStatus = 'synced';
+  } catch (e) {
+    state.syncStatus = 'error';
+    flash('保存エラー: ' + e.message, 'error');
+  }
+  render();
+}
+
+// 「実施済み」にする
+async function markDone(item, rec) {
+  const today = todayStr();
+  const updated = {
+    ...rec,
+    planned: true,                       // 実施＝その月に予定があったとみなす
+    status: '実施済',
+    done_date: today,
+    check_due_date: addDays(today, 7),   // 1週間後を確認予定日に
+  };
+  await upsertRecord(updated);
+  flash('実施済みにしました', 'success');
+}
+
+// 「整備後確認」完了にする（二重ステータスの2段目）
+async function markChecked(item, rec) {
+  const updated = { ...rec, status: '整備後確認' };
+  await upsertRecord(updated);
+  flash('整備後確認を完了しました', 'success');
+}
+
+// 未実施に戻す
+async function markUndone(item, rec) {
+  const updated = { ...rec, status: '未', done_date: '', check_due_date: '' };
+  await upsertRecord(updated);
+  flash('未実施に戻しました');
+}
+
+// 手動で予定を立てる（前回不明など自動計算されない項目用）
+async function togglePlan(item, rec) {
+  const updated = { ...rec, planned: !rec.planned };
+  await upsertRecord(updated);
+}
+
+// 前倒し実施: 翌月以降に予定がある項目を、当月に前倒しで実施記録を作る
+//   （繰越元IDに元のrecord_idを記録して追跡）
+async function carryForwardDone(item, fromRec, toYm) {
+  const today = todayStr();
+  const newRec = {
+    record_id: `${item.item_id}__${toYm}`,
+    item_id: item.item_id,
+    year_month: toYm,
+    planned: true,
+    status: '実施済',
+    done_date: today,
+    check_due_date: addDays(today, 7),
+    carried_from: fromRec.record_id || '',   // 繰越元を記録
+  };
+  await upsertRecord(newRec);
+  flash(`${toYm} の予定を前倒し実施しました`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 進捗集計
+//   単月: 対象月の「予定あり」を分母、「実施済 or 整備後確認」を分子
+//   累計: 全月の同条件で集計（年月で絞らない）
+// ═══════════════════════════════════════════════════════════════════
+function calcProgress(ym) {
+  // 単月: その月のビュー行から算出
+  const monthRows = buildMonthView(ym);
+  const monthPlanned = monthRows.filter(r => r.rec.planned);
+  const monthDone = monthPlanned.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認');
+
+  // 累計: 全実施記録のうち予定ありを分母（仮想レコードは含めない＝DB保存済みのみ）
+  //   ＋ 自動予定で未生成のぶんも分母に入れると、各月のビューを全部回す必要がある。
+  //   ここでは「保存済み記録 + 全月の自動予定」を正しく数えるため、1〜現在月を走査。
+  let cumPlanned = 0, cumDone = 0;
+  for (let mm = 1; mm <= 12; mm++) {
+    const y = `${TARGET_YEAR}-${String(mm).padStart(2,'0')}`;
+    const rows = buildMonthView(y);
+    rows.forEach(r => {
+      if (r.rec.planned) {
+        cumPlanned++;
+        if (r.rec.status === '実施済' || r.rec.status === '整備後確認') cumDone++;
+      }
+    });
+  }
+
+  return {
+    month: { done: monthDone.length, planned: monthPlanned.length },
+    cumulative: { done: cumDone, planned: cumPlanned },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// レンダリング
+// ═══════════════════════════════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  if (!state.apiUrl) { app.innerHTML = renderSetup(); bindSetup(); return; }
+  if (state.loading && state.master.length === 0) {
+    app.innerHTML = `<div class="center-load"><div class="loader"></div>読み込み中…</div>`;
+    return;
+  }
+  app.innerHTML = renderList();
+  bindList();
+  // モーダル
+  document.querySelector('.modal-overlay')?.remove();
+  if (state.modalItemId) {
+    document.body.insertAdjacentHTML('beforeend', renderModal());
+    bindModal();
+  }
+}
+
+function renderSetup() {
+  return `
+    <div class="setup anim-up">
+      <div class="setup-icon"><svg><use href="#i-cog"/></svg></div>
+      <h2>接続設定</h2>
+      <p class="lead">保全データを読み書きする Apps Script の<br>ウェブアプリ URL を入力してください。</p>
+      <div class="setup-field">
+        <label>Apps Script ウェブアプリ URL</label>
+        <input id="api-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(state.apiUrl)}">
+      </div>
+      <button class="setup-btn" id="connect-btn">接続する</button>
+      <p class="setup-help">
+        Apps Script を「デプロイ → ウェブアプリ」で公開すると <code>.../exec</code> で終わる URL が発行されます。
+        その URL をここに貼ってください。一度入力すればこの端末に記憶されます。
+      </p>
+    </div>
+  `;
+}
+
+function bindSetup() {
+  document.getElementById('connect-btn').addEventListener('click', () => {
+    const url = document.getElementById('api-url').value.trim();
+    if (!url || !/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) {
+      flash('正しいウェブアプリ URL を入力してください（.../exec で終わる）', 'error');
+      return;
+    }
+    state.apiUrl = url;
+    localStorage.setItem(API_URL_KEY, url);
+    loadAll();
+  });
+}
+
+function renderList() {
+  const ym = state.ym;
+  const rows = buildMonthView(ym);
+  const prog = calcProgress(ym);
+
+  // フィルタ適用
+  let filtered = rows;
+  if (state.filter === 'planned') filtered = rows.filter(r => r.rec.planned);
+  else if (state.filter === 'undone') filtered = rows.filter(r => r.rec.status === '未');
+  else if (state.filter === 'done') filtered = rows.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認');
+
+  const [yy, mm] = ym.split('-');
+  const monthNum = Number(mm);
+
+  // カウント
+  const cAll = rows.length;
+  const cPlanned = rows.filter(r => r.rec.planned).length;
+  const cUndone = rows.filter(r => r.rec.status === '未').length;
+  const cDone = rows.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認').length;
+
+  const monthPct = prog.month.planned > 0 ? Math.round(prog.month.done / prog.month.planned * 100) : 0;
+  const cumPct = prog.cumulative.planned > 0 ? Math.round(prog.cumulative.done / prog.cumulative.planned * 100) : 0;
+
+  return `
+    <div class="anim-up">
+      <div class="header">
+        <div class="header-top">
+          <div>
+            <h1>NID保全カレンダー</h1>
+            <div class="sync-status">
+              <div class="sync-dot ${state.syncStatus}"></div>
+              <span>${state.syncStatus === 'synced' ? '同期済み' : state.syncStatus === 'loading' ? '読み込み中…' : 'エラー'}</span>
+            </div>
+          </div>
+          <button class="month-nav" id="reload-btn" title="再読み込み"><svg><use href="#i-repeat"/></svg></button>
+        </div>
+        <div class="month-bar">
+          <button class="month-nav" id="prev-month" ${monthNum <= 1 ? 'disabled' : ''}><svg><use href="#i-chev-l"/></svg></button>
+          <div class="month-display">
+            <div class="ym">${yy}<span class="mon">.${mm}</span></div>
+            <div class="label">対象年月</div>
+          </div>
+          <button class="month-nav" id="next-month" ${monthNum >= 12 ? 'disabled' : ''}><svg><use href="#i-chev-r"/></svg></button>
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-cards">
+          <div class="progress-card month">
+            <div class="pc-label">単月実施率</div>
+            <div class="pc-rate"><span class="num">${monthPct}</span><span class="pct">%</span></div>
+            <div class="pc-frac">${prog.month.done} / ${prog.month.planned} 件</div>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${monthPct}%"></div></div>
+          </div>
+          <div class="progress-card cumulative">
+            <div class="pc-label">累計実施率 (年間)</div>
+            <div class="pc-rate"><span class="num">${cumPct}</span><span class="pct">%</span></div>
+            <div class="pc-frac">${prog.cumulative.done} / ${prog.cumulative.planned} 件</div>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${cumPct}%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-chips">
+        <button class="chip ${state.filter === 'all' ? 'active' : ''}" data-filter="all">全て<span class="cnt">${cAll}</span></button>
+        <button class="chip ${state.filter === 'planned' ? 'active' : ''}" data-filter="planned">予定あり<span class="cnt">${cPlanned}</span></button>
+        <button class="chip ${state.filter === 'undone' ? 'active' : ''}" data-filter="undone">未実施<span class="cnt">${cUndone}</span></button>
+        <button class="chip ${state.filter === 'done' ? 'active' : ''}" data-filter="done">実施済<span class="cnt">${cDone}</span></button>
+      </div>
+
+      <div class="list">
+        ${filtered.length === 0 ? renderEmpty() : filtered.map(renderItemCard).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderEmpty() {
+  return `
+    <div class="empty">
+      <div class="empty-icon"><svg><use href="#i-cal"/></svg></div>
+      <h2>該当する項目がありません</h2>
+      <p>この月・この絞り込みでは表示する保全項目がありません</p>
+    </div>
+  `;
+}
+
+function renderItemCard(row) {
+  const { item, rec } = row;
+  const status = rec.status;
+  const statusClass = status === '実施済' ? 'status-done' : status === '整備後確認' ? 'status-check' : '';
+  const carried = rec.carried_from ? `<span class="carry-tag"><svg width="9" height="9"><use href="#i-repeat"/></svg>前倒/繰越</span>` : '';
+
+  const statusPill =
+    status === '実施済' ? `<span class="status-pill s-done">実施済</span>` :
+    status === '整備後確認' ? `<span class="status-pill s-check">確認済</span>` :
+    `<span class="status-pill s-undone">未</span>`;
+
+  // メタ情報
+  const metas = [];
+  if (item.process) metas.push(`<span class="mtag">${esc(item.process)}</span>`);
+  if (item.part) metas.push(`<span class="mtag"><svg><use href="#i-pin"/></svg>${esc(item.part)}</span>`);
+  if (item.cycle_months) metas.push(`<span class="mtag"><svg><use href="#i-repeat"/></svg>${item.cycle_months}ヶ月</span>`);
+  if (rec.done_date) metas.push(`<span class="mtag"><svg><use href="#i-check"/></svg>${esc(rec.done_date)}</span>`);
+  if (status === '実施済' && rec.check_due_date) metas.push(`<span class="mtag"><svg><use href="#i-clock"/></svg>確認予定 ${esc(rec.check_due_date)}</span>`);
+
+  // アクションボタン（ステータスにより出し分け）
+  let actions = '';
+  if (status === '未') {
+    if (rec.planned) {
+      actions = `
+        <button class="act-btn primary" data-act="done" data-id="${item.item_id}"><svg><use href="#i-check"/></svg>実施済みにする</button>
+      `;
+    } else {
+      // 予定がない項目: 手動で予定を立てるボタン
+      actions = `
+        <button class="act-btn plan" data-act="plan" data-id="${item.item_id}"><svg><use href="#i-plus"/></svg>今月の予定にする</button>
+        <button class="act-btn primary" data-act="done" data-id="${item.item_id}"><svg><use href="#i-check"/></svg>実施済み</button>
+      `;
+    }
+  } else if (status === '実施済') {
+    actions = `
+      <button class="act-btn check" data-act="check" data-id="${item.item_id}"><svg><use href="#i-check"/></svg>整備後確認 完了</button>
+      <button class="act-btn undo" data-act="undo" data-id="${item.item_id}"><svg><use href="#i-undo"/></svg>戻す</button>
+    `;
+  } else if (status === '整備後確認') {
+    actions = `
+      <button class="act-btn undo" data-act="undo" data-id="${item.item_id}"><svg><use href="#i-undo"/></svg>未実施に戻す</button>
+    `;
+  }
+
+  return `
+    <div class="item-card ${statusClass} ${rec.carried_from ? 'carried' : ''}">
+      <div class="item-main">
+        <div class="item-statusbar"></div>
+        <div class="item-body" data-act="open" data-id="${item.item_id}">
+          <div class="item-head">
+            <div class="item-titles">
+              <div class="item-name">${esc(item.name) || '(無題)'}${carried}</div>
+              <div class="item-model">${item.model_no ? esc(item.model_no) : '—'}${item.model_needs_check ? `<span class="needs-check-badge"><svg width="9" height="9"><use href="#i-alert"/></svg>要確認</span>` : ''}</div>
+            </div>
+            ${statusPill}
+          </div>
+          <div class="item-meta">${metas.join('')}</div>
+        </div>
+      </div>
+      ${actions ? `<div class="item-actions">${actions}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderModal() {
+  const item = state.master.find(x => x.item_id === state.modalItemId);
+  if (!item) return '';
+  const rec = state.records.find(r => r.item_id === item.item_id && r.year_month === state.ym)
+    || makeVirtualRecord(item, state.ym, isPlannedAuto(item, state.ym));
+  return `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-head">
+          <div class="mh-name">${esc(item.name) || '(無題)'}</div>
+          <div class="mh-model">${item.model_no ? esc(item.model_no) : '—'}${item.model_needs_check ? `<span class="needs-check-badge"><svg width="9" height="9"><use href="#i-alert"/></svg>型番要確認</span>` : ''}</div>
+        </div>
+        <div class="modal-body">
+          <div class="detail-grid">
+            <div class="detail-cell"><div class="dc-label">項目ID</div><div class="dc-value font-tech">${esc(item.item_id)}</div></div>
+            <div class="detail-cell"><div class="dc-label">交換周期</div><div class="dc-value">${item.cycle_months ? item.cycle_months + ' ヶ月' : '—'}</div></div>
+            <div class="detail-cell"><div class="dc-label">工程</div><div class="dc-value">${esc(item.process) || '—'}</div></div>
+            <div class="detail-cell"><div class="dc-label">部位</div><div class="dc-value">${esc(item.part) || '—'}</div></div>
+            <div class="detail-cell"><div class="dc-label">設置数量</div><div class="dc-value">${esc(String(item.quantity ?? '—'))}</div></div>
+            <div class="detail-cell"><div class="dc-label">前回交換日</div><div class="dc-value">${esc(item.prev_change_date || item.prev_change_raw || '—')}</div></div>
+          </div>
+          <div class="field-block">
+            <label>注意書き</label>
+            <textarea id="edit-note" rows="2" placeholder="作業上の注意点など">${esc(item.note)}</textarea>
+          </div>
+          <div class="field-block">
+            <label>コメント</label>
+            <textarea id="edit-comment" rows="2" placeholder="メモ・申し送りなど">${esc(item.comment)}</textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn close" id="modal-close">閉じる</button>
+          <button class="modal-btn save" id="modal-save">保存</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindModal() {
+  const close = () => { state.modalItemId = null; render(); };
+  document.getElementById('modal-close').addEventListener('click', close);
+  document.querySelector('.modal-overlay').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) close();
+  });
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const item = state.master.find(x => x.item_id === state.modalItemId);
+    if (!item) return;
+    const note = document.getElementById('edit-note').value;
+    const comment = document.getElementById('edit-comment').value;
+    // ローカル反映
+    item.note = note; item.comment = comment;
+    try {
+      // note と comment をそれぞれマスターに保存（item_idで対象特定）
+      await apiPost({ action: 'updateMasterField', item_id: item.item_id, field: 'note', value: note });
+      await apiPost({ action: 'updateMasterField', item_id: item.item_id, field: 'comment', value: comment });
+      flash('保存しました', 'success');
+    } catch (e) {
+      flash('保存エラー: ' + e.message, 'error');
+    }
+    state.modalItemId = null;
+    render();
+  });
+}
+
+function bindList() {
+  document.getElementById('reload-btn')?.addEventListener('click', loadAll);
+  document.getElementById('prev-month')?.addEventListener('click', () => changeMonth(-1));
+  document.getElementById('next-month')?.addEventListener('click', () => changeMonth(1));
+
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => { state.filter = c.dataset.filter; render(); });
+  });
+
+  // 項目カードのアクション
+  document.querySelectorAll('[data-act]').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const act = el.dataset.act;
+      const id = el.dataset.id;
+      const item = state.master.find(x => x.item_id === id);
+      if (!item) return;
+      const rec = state.records.find(r => r.item_id === id && r.year_month === state.ym)
+        || makeVirtualRecord(item, state.ym, isPlannedAuto(item, state.ym));
+
+      if (act === 'open') { state.modalItemId = id; render(); }
+      else if (act === 'done') await markDone(item, rec);
+      else if (act === 'check') await markChecked(item, rec);
+      else if (act === 'undo') await markUndone(item, rec);
+      else if (act === 'plan') await togglePlan(item, rec);
+    });
+  });
+}
+
+function changeMonth(delta) {
+  const [y, m] = state.ym.split('-').map(Number);
+  let nm = m + delta;
+  if (nm < 1) nm = 1;
+  if (nm > 12) nm = 12;
+  state.ym = `${TARGET_YEAR}-${String(nm).padStart(2,'0')}`;
+  state.filter = 'all';
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ユーティリティ
+// ═══════════════════════════════════════════════════════════════════
+function flash(msg, kind) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast' + (kind ? ' ' + kind : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 起動
+// ═══════════════════════════════════════════════════════════════════
+render();
+if (state.apiUrl) loadAll();
+</script>
+</body>
+</html>
