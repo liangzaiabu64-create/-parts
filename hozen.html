@@ -322,11 +322,34 @@ function normalizeMaster(row) {
   };
 }
 
+// year_month を必ず 'YYYY-MM' 文字列に正規化する。
+//   Sheetsが '2026-01' を日付と解釈し、ISO文字列(例 '2025-12-31T15:00:00.000Z')で
+//   返してくることがある。しかも日本時間→UTC変換で月がずれる(1/1 00:00 JST = 12/31 15:00 UTC)。
+//   そこで日付として読めた場合は「日本時間(UTC+9)に直してから」年月を取り出す。
+function normalizeYearMonth(v) {
+  if (v == null) return '';
+  const s = String(v);
+  // すでに 'YYYY-MM' 形式ならそのまま
+  const plain = s.match(/^(\d{4})-(\d{2})$/);
+  if (plain) return s;
+  // ISO日付文字列なら、JST(UTC+9)に補正して年月を取り出す
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);  // UTC→JST
+    const y = jst.getUTCFullYear();
+    const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+  // それ以外は頭6文字を試す(YYYY-MM... の形)
+  const head = s.match(/^(\d{4})-(\d{2})/);
+  return head ? `${head[1]}-${head[2]}` : s;
+}
+
 function normalizeRecord(row) {
   return {
     record_id: String(row.record_id || ''),
     item_id: String(row.item_id || ''),
-    year_month: String(row.year_month || ''),
+    year_month: normalizeYearMonth(row.year_month),   // 日付化されても YYYY-MM に戻す
     planned: row.planned === true || row.planned === 'TRUE' || row.planned === 'true',
     status: String(row.status || '未'),
     done_date: String(row.done_date || ''),
