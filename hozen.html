@@ -1162,7 +1162,14 @@ function bindItemForm() {
       } else {
         await apiPost({ action: 'addMasterItem', item });
         state.master.push(normalizeMaster(item));
-        flash('項目を追加しました', 'success');
+        // 追加した項目を「表示中の月の予定」として登録する。
+        //   理由: 月次一覧は予定がある項目だけ表示するため、予定を立てないと
+        //   追加直後にどこにも出ず確認できない。手動追加＝今やりたい保全なので
+        //   当月の予定にしておくのが自然。
+        const newRec = makeVirtualRecord(item, state.ym, true);  // planned=true
+        await apiPost({ action: 'upsertRecord', record: newRec });
+        state.records.push(normalizeRecord(newRec));
+        flash('項目を追加しました（今月の予定に登録）', 'success');
       }
     } catch (e) {
       flash('保存エラー: ' + e.message, 'error');
