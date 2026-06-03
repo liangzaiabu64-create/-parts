@@ -260,7 +260,14 @@
     .print-screen { min-height: 0; }
     .print-table th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 14mm; }
-  }
+  }  /* ───── 部品在庫タグ（機能要件7） ───── */
+  .stock-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, monospace; margin-left: 6px; vertical-align: middle; }
+  .stock-tag svg { width: 10px; height: 10px; }
+  .stock-tag.ok { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .stock-tag.short { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .stock-tag.none { background: #262626; color: #737373; }
+  .stock-tag.loading { background: #1f1f1f; color: #525252; }
+
 </style>
 </head>
 <body>
@@ -278,9 +285,15 @@
 <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
 <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
 </defs></svg>
 
 <div id="app" class="container"></div>
+
+<!-- Firebase SDK（部品アプリのFirestore在庫を参照するため。読み取り専用で使う） -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
 'use strict';
@@ -291,6 +304,29 @@
 //   （URL自体は秘密情報ではないので保存先はlocalStorageで十分）
 // ═══════════════════════════════════════════════════════════════════
 const API_URL_KEY = 'nid-hozen-api-url';
+
+// ═══════════════════════════════════════════════════════════════════
+// 部品連携（機能要件7）: 部品アプリ(Firestore)の在庫を読み取り専用で参照する
+//   部品アプリと「同じ」firebaseConfig を使う＝同じ parts コレクションを読む。
+//   ここを部品アプリ(index.html)の firebaseConfig と一致させること。
+// ═══════════════════════════════════════════════════════════════════
+const partsFirebaseConfig = {
+  apiKey: "AIzaSyCVuvOgFOQuC5HZneEvkklZGnJYdqsrN7g",
+  authDomain: "parts-1-40d96.firebaseapp.com",
+  projectId: "parts-1-40d96",
+  storageBucket: "parts-1-40d96.firebasestorage.app",
+  messagingSenderId: "695101125652",
+  appId: "1:695101125652:web:ada09c3e92441aab73a301"
+};
+// 型番(正規化キー) → { qty, minQty, name, count } のマップ。起動時に1回構築。
+let partsStockMap = {};
+let partsLoaded = false;   // 在庫取得が完了したか
+let partsError = null;     // 取得エラー（あれば文言）
+
+// 型番の照合キー: 大文字小文字・前後空白を無視（保全側・部品側の両方に同じ処理）
+function stockKey(model) {
+  return String(model == null ? '' : model).trim().toLowerCase();
+}
 
 // 対象年は2026固定（マスターが2026年のため）。月だけ1〜12で動かす。
 // ※ state より前に定義する必要がある。state初期化時に currentYearMonth() が
@@ -379,6 +415,61 @@ async function loadAll() {
     state.loading = false;
     render();
   }
+  // 部品在庫の取得は本体とは独立に実行（失敗しても保全アプリは動かす）
+  loadPartsStock();
+}
+
+// 部品アプリ(Firestore)の parts を読み、型番→在庫のマップを作る。
+//   読み取り専用。1回だけ取得してマップ化（項目ごとの都度問い合わせを避ける）。
+//   同じ型番が複数部品にある場合は、数量を合算し件数も持つ。
+async function loadPartsStock() {
+  // Firebase未読み込み（CDNブロック等）なら静かに諦める
+  if (typeof firebase === 'undefined' || !firebase.initializeApp) {
+    partsError = 'Firebase未読込';
+    return;
+  }
+  try {
+    // 既に初期化済みなら再利用（二重initを避ける。名前付きアプリで分離）
+    let app;
+    const existing = firebase.apps.find(a => a.name === 'partsApp');
+    app = existing || firebase.initializeApp(partsFirebaseConfig, 'partsApp');
+    const auth = firebase.auth(app);
+    // 部品アプリのルールが「認証済みのみ読める」場合に備え匿名サインイン
+    try { if (!auth.currentUser) await auth.signInAnonymously(); } catch (e) { /* 認証不要なら無視 */ }
+    const db = firebase.firestore(app);
+    const snap = await db.collection('parts').get();
+    const map = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      const key = stockKey(d.model);
+      if (!key) return;
+      const qty = Number(d.quantity) || 0;
+      const minQty = Number(d.minQuantity) || 0;
+      if (map[key]) {
+        // 同じ型番が複数登録 → 数量合算、件数加算
+        map[key].qty += qty;
+        map[key].count += 1;
+      } else {
+        map[key] = { qty: qty, minQty: minQty, name: d.name || '', count: 1 };
+      }
+    });
+    partsStockMap = map;
+    partsLoaded = true;
+    partsError = null;
+    render();   // 在庫が揃ったら表示を更新
+  } catch (e) {
+    partsError = e.message || '取得失敗';
+    partsLoaded = false;
+    // 在庫が取れなくても本体は動くので、エラーは画面の在庫欄に控えめに出すだけ
+    render();
+  }
+}
+
+// ある点検項目に対応する在庫情報を返す。無ければ null。
+function getStockForItem(item) {
+  if (!item.model_no) return null;
+  const key = stockKey(item.model_no);
+  return partsStockMap[key] || null;
 }
 
 // Sheetsから来た値は型が緩いので、扱いやすい形に整える
@@ -900,6 +991,48 @@ function bindPrint() {
 }
 
 
+// 在庫タグのHTMLを返す（カード用）。型番なし・在庫未取得時は空文字。
+//   状態: 在庫あり(緑) / 在庫不足(赤・部品側のminQuantity割れ) / 在庫0(赤) / 部品未登録(灰)
+function renderStockTag(item) {
+  if (!item.model_no) return '';            // 型番が無い項目は在庫照合できない
+  if (!partsLoaded) {
+    return partsError ? '' : '<span class="stock-tag loading">在庫確認中…</span>';
+  }
+  const stock = getStockForItem(item);
+  if (!stock) {
+    return '<span class="stock-tag none"><svg width="10" height="10"><use href="#i-box"/></svg>部品未登録</span>';
+  }
+  const low = stock.minQty > 0 && stock.qty < stock.minQty;
+  const zero = stock.qty <= 0;
+  const cls = (zero || low) ? 'short' : 'ok';
+  const warn = zero ? '在庫切れ' : (low ? '在庫不足' : '');
+  return `<span class="stock-tag ${cls}"><svg width="10" height="10"><use href="#i-box"/></svg>在庫 ${stock.qty}${warn ? ' ' + warn : ''}</span>`;
+}
+
+// 詳細モーダル用の在庫セル。型番なしの項目では空（セルを出さない）。
+function renderStockDetailCell(item) {
+  if (!item.model_no) return '';
+  let inner;
+  if (!partsLoaded) {
+    inner = partsError
+      ? `<span style="color:#737373;">取得できませんでした</span>`
+      : `在庫確認中…`;
+  } else {
+    const stock = getStockForItem(item);
+    if (!stock) {
+      inner = `<span style="color:#737373;">部品アプリに未登録</span>`;
+    } else {
+      const low = stock.minQty > 0 && stock.qty < stock.minQty;
+      const zero = stock.qty <= 0;
+      const color = (zero || low) ? '#f87171' : '#4ade80';
+      const warn = zero ? ' （在庫切れ）' : (low ? ` （最低${stock.minQty}を下回る）` : '');
+      const multi = stock.count > 1 ? ` <small style="color:#737373;">※${stock.count}件合算</small>` : '';
+      inner = `<span style="color:${color};font-weight:700;">${stock.qty}</span>${warn}${multi}`;
+    }
+  }
+  return `<div class="detail-cell full"><div class="dc-label">部品在庫（型番照合）</div><div class="dc-value">${inner}</div></div>`;
+}
+
 function renderItemCard(row) {
   const { item, rec } = row;
   const status = rec.status;
@@ -918,6 +1051,9 @@ function renderItemCard(row) {
   if (item.cycle_months) metas.push(`<span class="mtag"><svg><use href="#i-repeat"/></svg>${item.cycle_months}ヶ月</span>`);
   if (rec.done_date) metas.push(`<span class="mtag"><svg><use href="#i-check"/></svg>${esc(rec.done_date)}</span>`);
   if (status === '実施済' && rec.check_due_date) metas.push(`<span class="mtag"><svg><use href="#i-clock"/></svg>確認予定 ${esc(rec.check_due_date)}</span>`);
+
+  // 部品在庫タグ（型番が部品アプリと照合できた場合のみ）
+  const stockTag = renderStockTag(item);
 
   // アクションボタン（ステータスにより出し分け）
   let actions = '';
@@ -952,7 +1088,7 @@ function renderItemCard(row) {
           <div class="item-head">
             <div class="item-titles">
               <div class="item-name">${esc(item.name) || '(無題)'}${carried}</div>
-              <div class="item-model">${item.model_no ? esc(item.model_no) : '—'}${item.model_needs_check ? `<span class="needs-check-badge"><svg width="9" height="9"><use href="#i-alert"/></svg>要確認</span>` : ''}</div>
+              <div class="item-model">${item.model_no ? esc(item.model_no) : '—'}${item.model_needs_check ? `<span class="needs-check-badge"><svg width="9" height="9"><use href="#i-alert"/></svg>要確認</span>` : ''}${stockTag}</div>
             </div>
             ${statusPill}
           </div>
@@ -985,6 +1121,7 @@ function renderModal() {
             <div class="detail-cell"><div class="dc-label">部位</div><div class="dc-value">${esc(item.part) || '—'}</div></div>
             <div class="detail-cell"><div class="dc-label">設置数量</div><div class="dc-value">${esc(String(item.quantity ?? '—'))}</div></div>
             <div class="detail-cell"><div class="dc-label">前回交換日</div><div class="dc-value">${esc(item.prev_change_date || item.prev_change_raw || '—')}</div></div>
+            ${renderStockDetailCell(item)}
           </div>
           <div class="field-block">
             <label>注意書き</label>
