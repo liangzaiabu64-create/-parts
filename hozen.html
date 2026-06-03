@@ -257,7 +257,11 @@ async function apiGet(action, params = {}) {
   const url = new URL(state.apiUrl);
   url.searchParams.set('action', action);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { method: 'GET' });
+  // キャッシュ回避: 毎回違う値(現在時刻)を付けて、ブラウザ/中継のキャッシュではなく
+  //   常にApps Scriptの最新結果を取りに行かせる。
+  //   ＝seedPlans等でシートを更新した直後でも、↻で確実に反映されるようにする。
+  url.searchParams.set('_t', Date.now());
+  const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'API error');
