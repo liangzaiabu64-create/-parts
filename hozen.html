@@ -249,6 +249,10 @@
   .ps-val { font-size: 28px; font-weight: 900; line-height: 1.1; }
   .ps-frac { font-size: 11px; color: #888; }
   .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  /* 列幅をcolgroupで厳守させ、長い品名/型番ははみ出さず折り返す */
+  .print-table.fixed-table { table-layout: fixed; }
+  .print-table.fixed-table td, .print-table.fixed-table th { word-break: break-all; white-space: normal; }
+  .print-table.fixed-table td.c-model { font-size: 11px; white-space: normal; }
   .print-table th, .print-table td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; }
   .print-table th { background: #f0f0f0; font-weight: 700; white-space: nowrap; }
   .print-table .c-num { width: 32px; text-align: center; color: #888; }
@@ -770,12 +774,20 @@ async function markUndone(item, rec) {
 // 前倒しを取り消す（前倒し済の将来月レコードを起点に）。
 //   将来月を元の「未（予定）」に戻し、対になる当月の実施済も「未」に戻す。
 async function cancelPullForward(item, pulledRec) {
-  // 1) 対になる当月レコードを特定（carried_to が指す当月）し、実施済なら未に戻す
+  // 1) 対になる当月レコードを特定（carried_to が指す当月）。
+  //    実施済なら未に戻す。ステータスに関わらず carried_from（前倒しタグの元）は必ず消す。
+  //    ※先に当月を「戻す」で未にしてから将来月を取り消す順序でも、タグが残らないようにする。
   const curId = pulledRec.carried_to;
   if (curId) {
     const cur = state.records.find(r => r.record_id === curId);
-    if (cur && (cur.status === '実施済' || cur.status === '整備後確認')) {
-      await upsertRecord({ ...cur, status: '未', done_date: '', check_due_date: '', carried_from: '' });
+    if (cur) {
+      const restored = { ...cur, carried_from: '' };
+      if (cur.status === '実施済' || cur.status === '整備後確認') {
+        restored.status = '未';
+        restored.done_date = '';
+        restored.check_due_date = '';
+      }
+      await upsertRecord(restored);
     }
   }
   // 2) 前倒し済の将来月を元の予定（未）に戻す
@@ -1252,7 +1264,11 @@ function renderPrint() {
             <div class="ps-cell"><span class="ps-label">累計実施率（年間）</span><span class="ps-val">${cumPct}%</span><span class="ps-frac">${prog.cumulative.done}/${prog.cumulative.planned}件</span></div>
           </div>
         ` : ''}
-        <table class="print-table">
+        <table class="print-table fixed-table">
+          <colgroup>
+            <col style="width:32px"><col style="width:10%"><col style="width:10%"><col style="width:24%"><col style="width:20%">
+            <col style="width:7%"><col style="width:9%"><col style="width:10%"><col style="width:auto">
+          </colgroup>
           <thead>${headRow}</thead>
           <tbody>${bodyRows || `<tr><td colspan="9" class="c-center">この月の予定項目はありません</td></tr>`}</tbody>
         </table>
