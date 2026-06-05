@@ -106,6 +106,15 @@
   .status-pill.s-undone { background: #262626; color: #a3a3a3; }
   .status-pill.s-done { background: rgba(34,197,94,0.15); color: #4ade80; }
   .status-pill.s-check { background: rgba(96,165,250,0.15); color: #60a5fa; }
+  .status-pill.s-pulled { background: rgba(234,179,8,0.15); color: #fbbf24; }
+  /* 前倒し済カード: 淡色＋破線で「消化済み」と分かるように */
+  .item-card.status-pulled { opacity: 0.6; border-style: dashed; }
+  .item-card.status-pulled .item-statusbar { background: #b45309; }
+  /* 前倒しボタン（モーダル内） */
+  .pull-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pull-btn { background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.35); color: #fb923c; font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 9px; transition: all 0.15s; }
+  .pull-btn:hover { background: rgba(251,146,60,0.2); }
+  .pull-btn:active { transform: scale(0.96); }
   .carry-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #fbbf24; font-family: ui-monospace, monospace; margin-left: 6px; }
 
   /* アクションボタン行 */
@@ -260,7 +269,55 @@
     .print-screen { min-height: 0; }
     .print-table th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 14mm; }
-  }  /* ───── 部品在庫タグ（機能要件7） ───── */
+  }  /* ───── カード上部の工程›部位パンくず ───── */
+  .item-breadcrumb { font-size: 11px; color: #737373; font-family: ui-monospace, monospace; margin-bottom: 3px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .item-breadcrumb .bc-sep { color: #404040; }
+
+  /* ───── 月セレクタ（ボタン化）と年間リンク ───── */
+  .month-display { flex: 1; text-align: center; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 10px; transition: background 0.15s; }
+  .month-display:hover { background: #171717; }
+  .ym-caret { vertical-align: middle; color: #525252; }
+  .year-view-link { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px auto 0; padding: 8px 16px; background: #171717; border: 1px solid #262626; border-radius: 10px; font-size: 12px; font-weight: 600; color: #a3a3a3; transition: all 0.15s; }
+  .year-view-link:hover { background: #262626; color: #fb923c; border-color: #fb923c; }
+  .year-view-link svg { width: 14px; height: 14px; }
+
+  /* ───── 月ピッカー ───── */
+  .month-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s; }
+  .month-picker { background: #171717; border: 1px solid #262626; border-radius: 18px; padding: 18px; max-width: 380px; width: 100%; animation: slideUpModal 0.25s ease-out; }
+  .mp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .mp-year { font-size: 18px; font-weight: 900; font-family: ui-monospace, monospace; }
+  .mp-close { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #a3a3a3; transition: all 0.15s; }
+  .mp-close:hover { background: #262626; color: #fafafa; }
+  .mp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .mp-cell { aspect-ratio: 1; background: #0f0f0f; border: 1px solid #262626; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: all 0.15s; }
+  .mp-cell:hover { border-color: #fb923c; background: rgba(251,146,60,0.06); }
+  .mp-cell.active { background: rgba(251,146,60,0.14); border-color: #fb923c; }
+  .mp-month { font-size: 22px; font-weight: 900; font-family: ui-monospace, monospace; }
+  .mp-gatsu { font-size: 11px; font-weight: 600; color: #737373; margin-left: 1px; }
+  .mp-count { font-size: 10px; font-family: ui-monospace, monospace; color: #4ade80; }
+  .mp-count.empty { color: #404040; }
+  .mp-cell.active .mp-month { color: #fb923c; }
+  .mp-hint { text-align: center; font-size: 10px; color: #525252; margin-top: 12px; font-family: ui-monospace, monospace; }
+
+  /* ───── 年間マトリクス表 ───── */
+  .yearly-table { font-size: 11px; }
+  .yearly-table th.ym-mcol { width: 26px; text-align: center; padding: 6px 2px; }
+  .yearly-table .ym-cell { text-align: center; padding: 4px 2px; font-size: 13px; }
+  .yearly-table .ym-cell.plan { color: #c2410c; font-weight: 700; }
+  .yearly-table .ym-cell.done { color: #15803d; font-weight: 900; }
+  .yearly-table .ym-proc, .yearly-table .ym-part { white-space: nowrap; font-size: 10px; }
+  .ym-legend { margin-top: 10px; font-size: 11px; color: #444; }
+  .ym-legend .lg-plan { color: #c2410c; font-weight: 700; }
+  .ym-legend .lg-done { color: #15803d; font-weight: 900; }
+  .ym-legend .lg-pulled { color: #b45309; font-weight: 700; }
+  .yearly-table .ym-cell.pulled { color: #b45309; font-weight: 700; }
+  .print-doc.landscape { max-width: 1100px; }
+  @media print {
+    .print-doc.landscape { max-width: none; }
+    @page { size: landscape; }
+  }
+
+  /* ───── 部品在庫タグ（機能要件7） ───── */
   .stock-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, monospace; margin-left: 6px; vertical-align: middle; }
   .stock-tag svg { width: 10px; height: 10px; }
   .stock-tag.ok { background: rgba(34,197,94,0.15); color: #4ade80; }
@@ -286,6 +343,8 @@
 <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
 <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+<symbol id="i-chev-d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></symbol>
 </defs></svg>
 
 <div id="app" class="container"></div>
@@ -323,9 +382,13 @@ let partsStockMap = {};
 let partsLoaded = false;   // 在庫取得が完了したか
 let partsError = null;     // 取得エラー（あれば文言）
 
-// 型番の照合キー: 大文字小文字・前後空白を無視（保全側・部品側の両方に同じ処理）
+// 型番の照合キー: 大文字小文字・前後空白・ハイフン・全角半角空白を無視。
+//   例: 'CF10-BUU' も 'cf10buu' も '  cf10 - buu ' も同じキーになる。
+//   理由: 部品アプリと保全アプリで表記が揺れても照合できるようにするため。
 function stockKey(model) {
-  return String(model == null ? '' : model).trim().toLowerCase();
+  return String(model == null ? '' : model)
+    .toLowerCase()
+    .replace(/[\s\u3000\-‐－―ー]/g, '');   // 空白類とハイフン各種を除去
 }
 
 // 対象年は2026固定（マスターが2026年のため）。月だけ1〜12で動かす。
@@ -356,7 +419,9 @@ let state = {
   _editComment: '',
   itemForm: null,          // 項目の追加・編集フォーム（nullなら非表示）
   confirmDelItem: null,    // 削除確認中の項目（nullなら非表示）
-  printMode: null,         // 印刷ビュー: null | 'checklist' | 'report'
+  printMode: null,         // 印刷ビュー: null | 'checklist' | 'report' | 'yearly'
+  monthPickerOpen: false,  // 月選択カレンダーの開閉
+  yearView: false,         // 年間マトリクス画面の表示
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -523,6 +588,7 @@ function normalizeRecord(row) {
     done_date: String(row.done_date || ''),
     check_due_date: String(row.check_due_date || ''),
     carried_from: String(row.carried_from || ''),
+    carried_to: String(row.carried_to || ''),   // 前倒し先（前倒し済レコードが当月を指す）
     updated_at: String(row.updated_at || ''),
   };
 }
@@ -561,6 +627,15 @@ function isPlannedAuto(item, ym) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// 状態判定ヘルパー（前倒し済の導入に伴い、status判定を1箇所に集約）
+//   countsAsPlanned: 「予定として数える」= planned かつ 前倒し済でない。
+//     前倒し済は将来月で消化済みなので、実施率の分母に入れない。
+//   countsAsDone: 「実施済として数える」= 実施済 または 整備後確認。
+// ═══════════════════════════════════════════════════════════════════
+function countsAsPlanned(rec) { return rec.planned && rec.status !== '前倒し済'; }
+function countsAsDone(rec) { return rec.status === '実施済' || rec.status === '整備後確認'; }
+
+// ═══════════════════════════════════════════════════════════════════
 // 対象月の「やるべき項目」とその実施記録を組み立てる
 //   方針: 毎月、該当する全項目ぶんの実施記録をあらかじめ生成する。
 //   ここではDB生成の前段として、画面表示用に master×records を結合する。
@@ -585,8 +660,8 @@ function buildMonthView(ym) {
     rows.push({ item, rec, virtual: !existing });
   });
 
-  // 並び順: 未実施→整備後確認待ち→実施済 の順、その中はitem_id順
-  const order = { '未': 0, '実施済': 1, '整備後確認': 2 };
+  // 並び順: 未実施→実施済→整備後確認→前倒し済 の順、その中はitem_id順
+  const order = { '未': 0, '実施済': 1, '整備後確認': 2, '前倒し済': 3 };
   rows.sort((a, b) => {
     const oa = order[a.rec.status] ?? 0;
     const ob = order[b.rec.status] ?? 0;
@@ -607,6 +682,7 @@ function makeVirtualRecord(item, ym, planned) {
     done_date: '',
     check_due_date: '',
     carried_from: '',
+    carried_to: '',
     updated_at: '',
   };
 }
@@ -675,22 +751,64 @@ async function togglePlan(item, rec) {
   await upsertRecord(updated);
 }
 
-// 前倒し実施: 翌月以降に予定がある項目を、当月に前倒しで実施記録を作る
-//   （繰越元IDに元のrecord_idを記録して追跡）
-async function carryForwardDone(item, fromRec, toYm) {
+// ═══════════════════════════════════════════════════════════════════
+// 前倒し実施（完成版設計）
+//   将来月の予定を当月へ前倒して実施する。
+//   方針: 当月に実施済みレコードを作り、前倒し元の将来月は「前倒し済」マークで残す
+//   （削除しない＝周期からの自動予定が将来月で復活するのを防ぐ）。
+// ═══════════════════════════════════════════════════════════════════
+
+// 当月より後で、対象項目が予定を持つ月の一覧を返す。
+//   既に未実施以外（実施済・前倒し済など）の将来月は候補から除外（再操作・二重前倒し防止）。
+function findFuturePlans(item, fromYm) {
+  const fm = Number(fromYm.split('-')[1]);
+  const result = [];
+  for (let m = fm + 1; m <= 12; m++) {
+    const ym = `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+    const existing = state.records.find(r => r.item_id === item.item_id && r.year_month === ym);
+    if (existing && existing.status !== '未') continue;   // 消化済み等は候補外
+    const planned = existing ? existing.planned : isPlannedAuto(item, ym);
+    if (planned) result.push({ ym, rec: existing || makeVirtualRecord(item, ym, true) });
+  }
+  return result;
+}
+
+// 将来月(futureYm)の予定を当月(state.ym)へ前倒して実施する。
+async function runPullForward(item, futureYm) {
   const today = todayStr();
-  const newRec = {
-    record_id: `${item.item_id}__${toYm}`,
-    item_id: item.item_id,
-    year_month: toYm,
-    planned: true,
-    status: '実施済',
-    done_date: today,
-    check_due_date: addDays(today, 7),
-    carried_from: fromRec.record_id || '',   // 繰越元を記録
+  const curYm = state.ym;
+  const curRecordId = `${item.item_id}__${curYm}`;
+  const futureRecordId = `${item.item_id}__${futureYm}`;
+
+  // 当月ガード: 既に実施済み/整備後確認なら多重実施を防ぐ
+  const curRec = state.records.find(r => r.item_id === item.item_id && r.year_month === curYm);
+  if (curRec && (curRec.status === '実施済' || curRec.status === '整備後確認')) {
+    flash('この項目は今月すでに実施済みです', 'error');
+    return;
+  }
+
+  // 1) 当月を実施済みに（既存があれば更新、なければ新規）
+  const curUpdated = {
+    ...(curRec || makeVirtualRecord(item, curYm, true)),
+    record_id: curRecordId, item_id: item.item_id, year_month: curYm,
+    planned: true, status: '実施済',
+    done_date: today, check_due_date: addDays(today, 7),
+    carried_from: futureRecordId,   // どの将来月を前倒したか
   };
-  await upsertRecord(newRec);
-  flash(`${toYm} の予定を前倒し実施しました`, 'success');
+  await upsertRecord(curUpdated);
+
+  // 2) 将来月を「前倒し済」マークで保存（削除しない＝計算予定の復活も封じる）
+  const futureMarked = {
+    ...makeVirtualRecord(item, futureYm, true),
+    record_id: futureRecordId, item_id: item.item_id, year_month: futureYm,
+    planned: true, status: '前倒し済',
+    done_date: today, check_due_date: '',
+    carried_to: curRecordId,         // 前倒し先（当月）を指す
+  };
+  await upsertRecord(futureMarked);
+
+  flash(`${Number(futureYm.split('-')[1])}月の予定を前倒し実施しました`, 'success');
+  render();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -699,22 +817,21 @@ async function carryForwardDone(item, fromRec, toYm) {
 //   累計: 全月の同条件で集計（年月で絞らない）
 // ═══════════════════════════════════════════════════════════════════
 function calcProgress(ym) {
-  // 単月: その月のビュー行から算出
+  // 単月: その月のビュー行から算出。前倒し済は分母に数えない（countsAsPlanned）。
   const monthRows = buildMonthView(ym);
-  const monthPlanned = monthRows.filter(r => r.rec.planned);
-  const monthDone = monthPlanned.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認');
+  const monthPlanned = monthRows.filter(r => countsAsPlanned(r.rec));
+  const monthDone = monthPlanned.filter(r => countsAsDone(r.rec));
 
-  // 累計: 全実施記録のうち予定ありを分母（仮想レコードは含めない＝DB保存済みのみ）
-  //   ＋ 自動予定で未生成のぶんも分母に入れると、各月のビューを全部回す必要がある。
-  //   ここでは「保存済み記録 + 全月の自動予定」を正しく数えるため、1〜現在月を走査。
+  // 累計: 1〜12月を走査。前倒し済は分母にも分子にも入れない（二重計上回避）。
+  //   前倒し先（当月）の実施済は countsAsDone で分子に入る。
   let cumPlanned = 0, cumDone = 0;
   for (let mm = 1; mm <= 12; mm++) {
     const y = `${TARGET_YEAR}-${String(mm).padStart(2,'0')}`;
     const rows = buildMonthView(y);
     rows.forEach(r => {
-      if (r.rec.planned) {
+      if (countsAsPlanned(r.rec)) {
         cumPlanned++;
-        if (r.rec.status === '実施済' || r.rec.status === '整備後確認') cumDone++;
+        if (countsAsDone(r.rec)) cumDone++;
       }
     });
   }
@@ -796,18 +913,18 @@ function renderList() {
 
   // フィルタ適用
   let filtered = rows;
-  if (state.filter === 'planned') filtered = rows.filter(r => r.rec.planned);
+  if (state.filter === 'planned') filtered = rows.filter(r => countsAsPlanned(r.rec));
   else if (state.filter === 'undone') filtered = rows.filter(r => r.rec.status === '未');
-  else if (state.filter === 'done') filtered = rows.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認');
+  else if (state.filter === 'done') filtered = rows.filter(r => countsAsDone(r.rec));
 
   const [yy, mm] = ym.split('-');
   const monthNum = Number(mm);
 
-  // カウント
+  // カウント（前倒し済は「予定あり」に数えない＝実施率の分母と一致させる）
   const cAll = rows.length;
-  const cPlanned = rows.filter(r => r.rec.planned).length;
+  const cPlanned = rows.filter(r => countsAsPlanned(r.rec)).length;
   const cUndone = rows.filter(r => r.rec.status === '未').length;
-  const cDone = rows.filter(r => r.rec.status === '実施済' || r.rec.status === '整備後確認').length;
+  const cDone = rows.filter(r => countsAsDone(r.rec)).length;
 
   const monthPct = prog.month.planned > 0 ? Math.round(prog.month.done / prog.month.planned * 100) : 0;
   const cumPct = prog.cumulative.planned > 0 ? Math.round(prog.cumulative.done / prog.cumulative.planned * 100) : 0;
@@ -831,13 +948,16 @@ function renderList() {
         </div>
         <div class="month-bar">
           <button class="month-nav" id="prev-month" ${monthNum <= 1 ? 'disabled' : ''}><svg><use href="#i-chev-l"/></svg></button>
-          <div class="month-display">
-            <div class="ym">${yy}<span class="mon">.${mm}</span></div>
-            <div class="label">対象年月</div>
-          </div>
+          <button class="month-display" id="month-picker-btn" title="月を選択">
+            <div class="ym">${yy}<span class="mon">.${mm}</span> <svg class="ym-caret" width="14" height="14"><use href="#i-chev-d"/></svg></div>
+            <div class="label">対象年月 ・ タップで選択</div>
+          </button>
           <button class="month-nav" id="next-month" ${monthNum >= 12 ? 'disabled' : ''}><svg><use href="#i-chev-r"/></svg></button>
         </div>
+        <button class="year-view-link" id="year-view-btn"><svg width="14" height="14"><use href="#i-grid"/></svg>年間計画表を見る</button>
       </div>
+
+      ${state.monthPickerOpen ? renderMonthPicker(yy, monthNum) : ''}
 
       <div class="progress-section">
         <div class="progress-cards">
@@ -870,6 +990,36 @@ function renderList() {
   `;
 }
 
+// 月選択カレンダー（1〜12月をグリッドで選ぶ）。各月の予定件数も小さく出す。
+function renderMonthPicker(year, currentMonth) {
+  const cells = [];
+  for (let m = 1; m <= 12; m++) {
+    const ym = `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+    const rows = buildMonthView(ym);
+    const planned = rows.filter(r => r.rec.planned).length;
+    const done = rows.filter(r => r.rec.planned && (r.rec.status === '実施済' || r.rec.status === '整備後確認')).length;
+    const isCurrent = m === currentMonth;
+    cells.push(`
+      <button class="mp-cell ${isCurrent ? 'active' : ''}" data-month="${m}">
+        <div class="mp-month">${m}<span class="mp-gatsu">月</span></div>
+        ${planned > 0 ? `<div class="mp-count">${done}/${planned}</div>` : `<div class="mp-count empty">—</div>`}
+      </button>
+    `);
+  }
+  return `
+    <div class="month-picker-overlay" id="mp-overlay">
+      <div class="month-picker">
+        <div class="mp-head">
+          <span class="mp-year">${year}年</span>
+          <button class="mp-close" id="mp-close"><svg width="18" height="18"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="mp-grid">${cells.join('')}</div>
+        <div class="mp-hint">数字は 実施済 / 予定 の件数</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderEmpty() {
   return `
     <div class="empty">
@@ -885,6 +1035,69 @@ function renderEmpty() {
 //   2種類を切替: チェックリスト（当月の予定一覧）と 進捗レポート（実施率込み）。
 //   画面の操作部は print.css で印刷時に隠し、紙に出るのは表だけにする。
 // ═══════════════════════════════════════════════════════════════════
+// 年間マトリクス（項目×12ヶ月）のデータを組む。
+//   各項目について、12ヶ月それぞれの予定有無と実施状況を集める。
+//   予定がある月だけ残す（年間通して1度も予定がない項目は表に出さない）。
+function buildYearlyMatrix() {
+  // 月ごとのビューを先に全部作り、item_id→月→record を引けるようにする
+  const byItemMonth = {};   // item_id → { 1..12 → rec }
+  for (let m = 1; m <= 12; m++) {
+    const ym = `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+    buildMonthView(ym).forEach(r => {
+      if (!r.rec.planned) return;   // 予定がある月だけ拾う
+      if (!byItemMonth[r.item.item_id]) byItemMonth[r.item.item_id] = { item: r.item, months: {} };
+      byItemMonth[r.item.item_id].months[m] = r.rec;
+    });
+  }
+  // 配列化して item_id 順に並べる
+  const list = Object.values(byItemMonth);
+  list.sort((a, b) => a.item.item_id.localeCompare(b.item.item_id));
+  return list;
+}
+
+// 年間マトリクスの表HTML（画面・印刷で共用）
+function renderYearlyTable() {
+  const matrix = buildYearlyMatrix();
+  const monthHeaders = [];
+  for (let m = 1; m <= 12; m++) monthHeaders.push(`<th class="ym-mcol">${m}</th>`);
+
+  const bodyRows = matrix.map((row, i) => {
+    const { item, months } = row;
+    const cells = [];
+    for (let m = 1; m <= 12; m++) {
+      const rec = months[m];
+      if (!rec) { cells.push(`<td class="ym-cell"></td>`); continue; }
+      // 実施済・整備後確認は●、前倒し済は→、予定のみは〇
+      let mark, cls;
+      if (rec.status === '実施済' || rec.status === '整備後確認') { mark = '●'; cls = 'done'; }
+      else if (rec.status === '前倒し済') { mark = '→'; cls = 'pulled'; }
+      else { mark = '〇'; cls = 'plan'; }
+      cells.push(`<td class="ym-cell ${cls}">${mark}</td>`);
+    }
+    return `<tr>
+      <td class="c-num">${i + 1}</td>
+      <td class="ym-proc">${esc(item.process)}</td>
+      <td class="ym-part">${esc(item.part)}</td>
+      <td class="c-name">${esc(item.name)}</td>
+      <td class="c-model">${esc(item.model_no)}</td>
+      ${cells.join('')}
+    </tr>`;
+  }).join('');
+
+  return `
+    <table class="print-table yearly-table">
+      <thead>
+        <tr>
+          <th>No</th><th>工程</th><th>部位</th><th>品名</th><th>型番</th>
+          ${monthHeaders.join('')}
+        </tr>
+      </thead>
+      <tbody>${bodyRows || `<tr><td colspan="17" class="c-center">予定のある項目がありません</td></tr>`}</tbody>
+    </table>
+    <div class="ym-legend"><span class="lg-plan">〇</span> 予定　<span class="lg-done">●</span> 実施済　<span class="lg-pulled">→</span> 前倒し済</div>
+  `;
+}
+
 function renderPrint() {
   const ym = state.ym;
   const [yy, mm] = ym.split('-');
@@ -897,11 +1110,39 @@ function renderPrint() {
   const today = todayStr();
 
   const isReport = state.printMode === 'report';
+  const isYearly = state.printMode === 'yearly';
+
+  // 年間モードは専用レイアウト
+  if (isYearly) {
+    return `
+      <div class="print-screen">
+        <div class="print-toolbar no-print">
+          <button class="pt-back" id="print-back"><svg width="16" height="16"><use href="#i-chev-l"/></svg>戻る</button>
+          <div class="pt-tabs">
+            <button class="pt-tab" data-mode="checklist">チェックリスト</button>
+            <button class="pt-tab" data-mode="report">進捗レポート</button>
+            <button class="pt-tab active" data-mode="yearly">年間計画</button>
+          </div>
+          <button class="pt-print" id="do-print"><svg width="16" height="16"><use href="#i-printer"/></svg>印刷する</button>
+        </div>
+        <div class="print-doc landscape">
+          <div class="print-head">
+            <div class="print-title">NID保全カレンダー ${yy}年 年間計画表</div>
+            <div class="print-meta">
+              <span>出力日: ${today}</span>
+            </div>
+          </div>
+          ${renderYearlyTable()}
+          <div class="print-foot">※ 〇=予定 / ●=実施済。月セルの記号は各月の予定・実施状況を表します。</div>
+        </div>
+      </div>
+    `;
+  }
 
   // 表の行を組む
   const bodyRows = planned.map((r, i) => {
     const { item, rec } = r;
-    const statusText = rec.status === '整備後確認' ? '整備後確認済' : rec.status === '実施済' ? '実施済' : '未実施';
+    const statusText = rec.status === '整備後確認' ? '整備後確認済' : rec.status === '実施済' ? '実施済' : rec.status === '前倒し済' ? '前倒し済' : '未実施';
     if (isReport) {
       // 進捗レポート: 実施状況・実施日・確認予定日を含む
       return `<tr>
@@ -943,6 +1184,7 @@ function renderPrint() {
         <div class="pt-tabs">
           <button class="pt-tab ${!isReport ? 'active' : ''}" data-mode="checklist">チェックリスト</button>
           <button class="pt-tab ${isReport ? 'active' : ''}" data-mode="report">進捗レポート</button>
+          <button class="pt-tab" data-mode="yearly">年間計画</button>
         </div>
         <button class="pt-print" id="do-print"><svg width="16" height="16"><use href="#i-printer"/></svg>印刷する</button>
       </div>
@@ -1036,24 +1278,31 @@ function renderStockDetailCell(item) {
 function renderItemCard(row) {
   const { item, rec } = row;
   const status = rec.status;
-  const statusClass = status === '実施済' ? 'status-done' : status === '整備後確認' ? 'status-check' : '';
+  const statusClass = status === '実施済' ? 'status-done' : status === '整備後確認' ? 'status-check' : status === '前倒し済' ? 'status-pulled' : '';
   const carried = rec.carried_from ? `<span class="carry-tag"><svg width="9" height="9"><use href="#i-repeat"/></svg>前倒/繰越</span>` : '';
 
   const statusPill =
     status === '実施済' ? `<span class="status-pill s-done">実施済</span>` :
     status === '整備後確認' ? `<span class="status-pill s-check">確認済</span>` :
+    status === '前倒し済' ? `<span class="status-pill s-pulled">前倒し済</span>` :
     `<span class="status-pill s-undone">未</span>`;
 
-  // メタ情報
+  // メタ情報（工程・部位はカード上部に移したので、ここでは周期・実施日など）
   const metas = [];
-  if (item.process) metas.push(`<span class="mtag">${esc(item.process)}</span>`);
-  if (item.part) metas.push(`<span class="mtag"><svg><use href="#i-pin"/></svg>${esc(item.part)}</span>`);
   if (item.cycle_months) metas.push(`<span class="mtag"><svg><use href="#i-repeat"/></svg>${item.cycle_months}ヶ月</span>`);
   if (rec.done_date) metas.push(`<span class="mtag"><svg><use href="#i-check"/></svg>${esc(rec.done_date)}</span>`);
   if (status === '実施済' && rec.check_due_date) metas.push(`<span class="mtag"><svg><use href="#i-clock"/></svg>確認予定 ${esc(rec.check_due_date)}</span>`);
 
   // 部品在庫タグ（型番が部品アプリと照合できた場合のみ）
   const stockTag = renderStockTag(item);
+
+  // 工程・部位を上部のパンくず風に（工程 › 部位）
+  const breadcrumb = [];
+  if (item.process) breadcrumb.push(esc(item.process));
+  if (item.part) breadcrumb.push(esc(item.part));
+  const breadcrumbHtml = breadcrumb.length
+    ? `<div class="item-breadcrumb">${breadcrumb.join('<span class="bc-sep">›</span>')}</div>`
+    : '';
 
   // アクションボタン（ステータスにより出し分け）
   let actions = '';
@@ -1087,6 +1336,7 @@ function renderItemCard(row) {
         <div class="item-body" data-act="open" data-id="${item.item_id}">
           <div class="item-head">
             <div class="item-titles">
+              ${breadcrumbHtml}
               <div class="item-name">${esc(item.name) || '(無題)'}${carried}</div>
               <div class="item-model">${item.model_no ? esc(item.model_no) : '—'}${item.model_needs_check ? `<span class="needs-check-badge"><svg width="9" height="9"><use href="#i-alert"/></svg>要確認</span>` : ''}${stockTag}</div>
             </div>
@@ -1105,6 +1355,17 @@ function renderModal() {
   if (!item) return '';
   const rec = state.records.find(r => r.item_id === item.item_id && r.year_month === state.ym)
     || makeVirtualRecord(item, state.ym, isPlannedAuto(item, state.ym));
+  // 前倒し候補（当月より後で予定がある月）。あればモーダルにボタンを出す。
+  const futurePlans = findFuturePlans(item, state.ym);
+  const pullForwardHtml = futurePlans.length > 0 ? `
+          <div class="field-block">
+            <label>前倒し実施（将来の予定を今月やる）</label>
+            <div class="pull-list">
+              ${futurePlans.map(p => `
+                <button class="pull-btn" data-pull-ym="${p.ym}">${Number(p.ym.split('-')[1])}月の予定を前倒し</button>
+              `).join('')}
+            </div>
+          </div>` : '';
   return `
     <div class="modal-overlay">
       <div class="modal">
@@ -1131,6 +1392,7 @@ function renderModal() {
             <label>コメント</label>
             <textarea id="edit-comment" rows="2" placeholder="メモ・申し送りなど">${esc(item.comment)}</textarea>
           </div>
+          ${pullForwardHtml}
           <div class="modal-sub-actions">
             <button class="sub-link" id="modal-edit-item"><svg width="13" height="13"><use href="#i-edit"/></svg>項目を編集</button>
             <button class="sub-link danger" id="modal-delete-item"><svg width="13" height="13"><use href="#i-trash"/></svg>項目を削除</button>
@@ -1150,6 +1412,16 @@ function bindModal() {
   document.getElementById('modal-close').addEventListener('click', close);
   document.querySelector('.modal-overlay').addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) close();
+  });
+  // 前倒し実行ボタン
+  document.querySelectorAll('.pull-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = state.master.find(x => x.item_id === state.modalItemId);
+      if (!item) return;
+      await runPullForward(item, btn.dataset.pullYm);
+      state.modalItemId = null;   // 実行後モーダルを閉じる（多重実行の防止にも）
+      render();
+    });
   });
   // 項目を編集 → 編集フォームを開く（詳細モーダルは閉じる）
   document.getElementById('modal-edit-item').addEventListener('click', () => {
@@ -1393,6 +1665,35 @@ function bindList() {
     state.printMode = 'checklist';
     render();
   });
+  // 月セレクタをタップ → 月ピッカー開閉
+  document.getElementById('month-picker-btn')?.addEventListener('click', () => {
+    state.monthPickerOpen = !state.monthPickerOpen;
+    render();
+  });
+  // 年間計画表ボタン → 年間マトリクスの印刷ビュー（画面でも見られる）
+  document.getElementById('year-view-btn')?.addEventListener('click', () => {
+    state.printMode = 'yearly';
+    render();
+  });
+  // 月ピッカー内の操作
+  if (state.monthPickerOpen) {
+    document.getElementById('mp-close')?.addEventListener('click', () => {
+      state.monthPickerOpen = false;
+      render();
+    });
+    document.getElementById('mp-overlay')?.addEventListener('click', (e) => {
+      if (e.target.id === 'mp-overlay') { state.monthPickerOpen = false; render(); }
+    });
+    document.querySelectorAll('.mp-cell').forEach(c => {
+      c.addEventListener('click', () => {
+        const m = Number(c.dataset.month);
+        state.ym = `${TARGET_YEAR}-${String(m).padStart(2,'0')}`;
+        state.monthPickerOpen = false;
+        state.filter = 'all';
+        render();
+      });
+    });
+  }
 
   document.querySelectorAll('.chip').forEach(c => {
     c.addEventListener('click', () => { state.filter = c.dataset.filter; render(); });
