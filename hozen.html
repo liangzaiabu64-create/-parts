@@ -300,20 +300,24 @@
   .mp-hint { text-align: center; font-size: 10px; color: #525252; margin-top: 12px; font-family: ui-monospace, monospace; }
 
   /* ───── 年間マトリクス表 ───── */
-  .yearly-table { font-size: 11px; }
-  .yearly-table th.ym-mcol { width: 26px; text-align: center; padding: 6px 2px; }
-  .yearly-table .ym-cell { text-align: center; padding: 4px 2px; font-size: 13px; }
+  .yearly-table { font-size: 11px; table-layout: fixed; }
+  .yearly-table th.ym-mcol { width: 22px; text-align: center; padding: 6px 1px; }
+  .yearly-table .ym-cell { text-align: center; padding: 4px 1px; font-size: 13px; }
   .yearly-table .ym-cell.plan { color: #c2410c; font-weight: 700; }
   .yearly-table .ym-cell.done { color: #15803d; font-weight: 900; }
-  .yearly-table .ym-proc, .yearly-table .ym-part { white-space: nowrap; font-size: 10px; }
+  /* 年間表は列が多いので、品名・型番は折り返して横幅を抑える（nowrap解除） */
+  .yearly-table .ym-proc, .yearly-table .ym-part { font-size: 10px; word-break: break-all; }
+  .yearly-table .c-name, .yearly-table .c-model { white-space: normal; word-break: break-all; }
+  .yearly-table .c-model { font-size: 10px; }
+  .yearly-table .c-num { width: 28px; }
   .ym-legend { margin-top: 10px; font-size: 11px; color: #444; }
   .ym-legend .lg-plan { color: #c2410c; font-weight: 700; }
   .ym-legend .lg-done { color: #15803d; font-weight: 900; }
   .ym-legend .lg-pulled { color: #b45309; font-weight: 700; }
   .yearly-table .ym-cell.pulled { color: #b45309; font-weight: 700; }
-  .print-doc.landscape { max-width: 1100px; }
+  .print-doc.landscape { max-width: 1100px; overflow-x: auto; }
   @media print {
-    .print-doc.landscape { max-width: none; }
+    .print-doc.landscape { max-width: none; overflow-x: visible; }
     @page { size: landscape; }
   }
 
@@ -740,9 +744,49 @@ async function markChecked(item, rec) {
 
 // 未実施に戻す
 async function markUndone(item, rec) {
-  const updated = { ...rec, status: '未', done_date: '', check_due_date: '' };
+  const updated = { ...rec, status: '未', done_date: '', check_due_date: '', carried_from: '' };
+
+  // この実施が前倒しによるものなら、対になる将来月の「前倒し済」も未に戻す。
+  //   ① carried_from が指す将来月を戻す（正規ルート・最優先）
+  //   ② 古いデータ救済: carried_to が当月レコードを指す前倒し済も戻す（双方向で辿る）
+  const targets = new Set();
+  if (rec.carried_from) targets.add(rec.carried_from);
+  state.records.forEach(r => {
+    if (r.item_id === item.item_id && r.status === '前倒し済' && r.carried_to === rec.record_id) {
+      targets.add(r.record_id);
+    }
+  });
+  for (const tid of targets) {
+    const future = state.records.find(r => r.record_id === tid);
+    if (future && future.status === '前倒し済') {
+      await upsertRecord({ ...future, status: '未', done_date: '', carried_to: '' });
+    }
+  }
+
   await upsertRecord(updated);
   flash('未実施に戻しました');
+}
+
+// 前倒しを取り消す（前倒し済の将来月レコードを起点に）。
+//   将来月を元の「未（予定）」に戻し、対になる当月の実施済も「未」に戻す。
+async function cancelPullForward(item, pulledRec) {
+  // 1) 対になる当月レコードを特定（carried_to が指す当月）し、実施済なら未に戻す
+  const curId = pulledRec.carried_to;
+  if (curId) {
+    const cur = state.records.find(r => r.record_id === curId);
+    if (cur && (cur.status === '実施済' || cur.status === '整備後確認')) {
+      await upsertRecord({ ...cur, status: '未', done_date: '', check_due_date: '', carried_from: '' });
+    }
+  }
+  // 2) 前倒し済の将来月を元の予定（未）に戻す
+  await upsertRecord({ ...pulledRec, status: '未', done_date: '', carried_to: '' });
+  flash('前倒しを取り消しました');
+}
+
+// record_id（item_id__YYYY-MM 形式）から月番号(1〜12)を取り出す。失敗時はnull。
+function monthFromRecordId(recordId) {
+  const m = String(recordId || '').match(/__\d{4}-(\d{2})$/);
+  return m ? Number(m[1]) : null;
 }
 
 // 手動で予定を立てる（前回不明など自動計算されない項目用）
@@ -1086,6 +1130,10 @@ function renderYearlyTable() {
 
   return `
     <table class="print-table yearly-table">
+      <colgroup>
+        <col style="width:28px"><col style="width:8%"><col style="width:8%"><col style="width:20%"><col style="width:14%">
+        ${Array.from({length:12}, () => '<col style="width:3.3%">').join('')}
+      </colgroup>
       <thead>
         <tr>
           <th>No</th><th>工程</th><th>部位</th><th>品名</th><th>型番</th>
@@ -1279,7 +1327,17 @@ function renderItemCard(row) {
   const { item, rec } = row;
   const status = rec.status;
   const statusClass = status === '実施済' ? 'status-done' : status === '整備後確認' ? 'status-check' : status === '前倒し済' ? 'status-pulled' : '';
-  const carried = rec.carried_from ? `<span class="carry-tag"><svg width="9" height="9"><use href="#i-repeat"/></svg>前倒/繰越</span>` : '';
+  // 前倒しの方向を月つきで表示する。
+  //   当月側(carried_from=将来月を前倒した): 「N月分を前倒し」
+  //   将来月側(carried_to=当月に前倒した):   「N月で実施済」
+  let carried = '';
+  if (rec.carried_from) {
+    const fm = monthFromRecordId(rec.carried_from);
+    carried = `<span class="carry-tag"><svg width="9" height="9"><use href="#i-repeat"/></svg>${fm ? fm + '月分を前倒し' : '前倒し実施'}</span>`;
+  } else if (rec.carried_to) {
+    const tm = monthFromRecordId(rec.carried_to);
+    carried = `<span class="carry-tag"><svg width="9" height="9"><use href="#i-repeat"/></svg>${tm ? tm + '月で実施済' : '前倒し済'}</span>`;
+  }
 
   const statusPill =
     status === '実施済' ? `<span class="status-pill s-done">実施済</span>` :
@@ -1327,10 +1385,15 @@ function renderItemCard(row) {
     actions = `
       <button class="act-btn undo" data-act="undo" data-id="${item.item_id}"><svg><use href="#i-undo"/></svg>未実施に戻す</button>
     `;
+  } else if (status === '前倒し済') {
+    // 前倒し済の月から直接、前倒しを取り消せる導線（対になる当月の実施済も連動して戻す）
+    actions = `
+      <button class="act-btn undo" data-act="cancel-pull" data-id="${item.item_id}"><svg><use href="#i-undo"/></svg>前倒しを取り消す</button>
+    `;
   }
 
   return `
-    <div class="item-card ${statusClass} ${rec.carried_from ? 'carried' : ''}">
+    <div class="item-card ${statusClass} ${(rec.carried_from || rec.carried_to) ? 'carried' : ''}">
       <div class="item-main">
         <div class="item-statusbar"></div>
         <div class="item-body" data-act="open" data-id="${item.item_id}">
@@ -1714,6 +1777,7 @@ function bindList() {
       else if (act === 'done') await markDone(item, rec);
       else if (act === 'check') await markChecked(item, rec);
       else if (act === 'undo') await markUndone(item, rec);
+      else if (act === 'cancel-pull') await cancelPullForward(item, rec);
       else if (act === 'plan') await togglePlan(item, rec);
     });
   });
